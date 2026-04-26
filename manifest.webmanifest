@@ -1,0 +1,27 @@
+{
+  "name": "Trade Ai",
+  "short_name": "Trade Ai",
+  "id": "/",
+  "description": "Mobile-first AI trading app with selective LONG and SHORT signals.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#090909",
+  "theme_color": "#090909",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

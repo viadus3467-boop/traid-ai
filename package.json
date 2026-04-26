@@ -1,0 +1,23 @@
+{
+  "name": "trade-ai",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Trade Ai mobile trading app for selective Forex and crypto signals.",
+  "scripts": {
+    "start": "node server.mjs",
+    "build:mobile-web": "node scripts/prepare-capacitor.mjs",
+    "android:add": "npm run build:mobile-web && npx cap add android",
+    "android:sync": "npm run build:mobile-web && npx cap sync android",
+    "android:open": "npx cap open android",
+    "ios:add": "npm run build:mobile-web && npx cap add ios",
+    "ios:sync": "npm run build:mobile-web && npx cap sync ios",
+    "ios:open": "npx cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/cli": "^8.3.1",
+    "@capacitor/core": "^8.3.1",
+    "@capacitor/ios": "^8.3.1"
+  }
+}

@@ -1,0 +1,14 @@
+.env
+.server.pid
+node_modules/
+.tools/
+.gradle-home/
+.android/
+android/.gradle/
+android/app/build/
+android/build/
+ios/App/Pods/
+ios/App/build/
+www/
+data/trade-ai-db.json
+npm-debug.log*

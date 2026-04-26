@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: trade-ai
+    runtime: node
+    plan: free
+    region: frankfurt
+    autoDeployTrigger: commit
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health

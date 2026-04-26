@@ -1,0 +1,6 @@
+{
+  "appId": "com.analizai.app",
+  "appName": "Trade Ai",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}
