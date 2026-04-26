@@ -41,8 +41,8 @@ self.addEventListener("fetch", (event) => {
 
 self.addEventListener("push", (event) => {
   const fallback = {
-    title: "Trade Ai",
-    body: "A new strong signal is ready.",
+    title: "Attention: new signal",
+    body: "A new strong signal is ready in Trade Ai.",
     tag: `push-${Date.now()}`,
     data: {
       url: "./",
@@ -70,6 +70,7 @@ self.addEventListener("push", (event) => {
       tag: payload.tag,
       data: payload.data,
       renotify: true,
+      requireInteraction: false,
     }),
   );
 });
@@ -78,9 +79,17 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const targetUrl = event.notification?.data?.url || "./";
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clients) => {
       if (clients.length > 0) {
-        return clients[0].focus();
+        const client = clients[0];
+        if ("navigate" in client) {
+          try {
+            await client.navigate(targetUrl);
+          } catch {
+            // ignore navigation failures and just focus the app
+          }
+        }
+        return client.focus();
       }
 
       return self.clients.openWindow(targetUrl);

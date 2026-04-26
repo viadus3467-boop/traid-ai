@@ -3,8 +3,9 @@ import { createReadStream, existsSync, readFileSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { activatePromoCode, getUserFromToken, loginUser, logoutToken, registerUser, updateUserSettings } from "./backend/auth.mjs";
+import { activatePromoCode, getUserFromToken, loginUser, loginWithOauth, logoutToken, registerUser, updateUserSettings } from "./backend/auth.mjs";
 import { getDashboard, getSnapshot } from "./backend/engine.mjs";
+import { createOauthAuthorizationUrl, createOauthState, exchangeOauthCode, getOauthProviderLabel } from "./backend/oauth.mjs";
 import { dispatchSignalPushes, getPushRuntimeConfig, removePushSubscription, savePushSubscription, sendTestPushNotification } from "./backend/push.mjs";
 import {
   confirmStripePaymentSession,
@@ -19,7 +20,9 @@ const port = Number(process.env.PORT || 4173);
 const root = path.dirname(fileURLToPath(import.meta.url));
 const envFile = path.join(root, ".env");
 const SESSION_COOKIE_NAME = "trade_ai_session";
+const OAUTH_COOKIE_NAME = "trade_ai_oauth";
 const SESSION_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
+const OAUTH_COOKIE_MAX_AGE = 60 * 10;
 const PUSH_LOOP_MS = 75_000;
 let pushLoopPromise = null;
 
@@ -119,32 +122,17 @@ async function readJsonBody(request) {
   }
 }
 
+async function readFormBody(request) {
+  const raw = await readRawBody(request);
+  return Object.fromEntries(new URLSearchParams(raw).entries());
+}
+
 function getRequestOrigin(request) {
   const forwardedProto = String(request.headers["x-forwarded-proto"] || "").split(",")[0].trim();
   const forwardedHost = String(request.headers["x-forwarded-host"] || "").split(",")[0].trim();
   const protocol = forwardedProto || "http";
   const requestHost = forwardedHost || request.headers.host || `${host}:${port}`;
   return `${protocol}://${requestHost}`;
-}
-
-function getOauthConfig(provider) {
-  if (provider === "google") {
-    return {
-      provider,
-      label: "Google",
-      url: String(process.env.TRADE_AI_GOOGLE_AUTH_URL || "").trim(),
-    };
-  }
-
-  if (provider === "apple") {
-    return {
-      provider,
-      label: "Apple / iCloud",
-      url: String(process.env.TRADE_AI_APPLE_AUTH_URL || "").trim(),
-    };
-  }
-
-  return null;
 }
 
 function parseCookies(request) {
@@ -176,6 +164,23 @@ function clearSessionCookie() {
   return `${SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
 }
 
+function createOauthCookie(provider, state) {
+  return `${OAUTH_COOKIE_NAME}=${encodeURIComponent(JSON.stringify({ provider, state }))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${OAUTH_COOKIE_MAX_AGE}`;
+}
+
+function clearOauthCookie() {
+  return `${OAUTH_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+}
+
+function getOauthCookie(request) {
+  try {
+    const raw = parseCookies(request)[OAUTH_COOKIE_NAME];
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 function getAuthToken(request) {
   const authorization = String(request.headers.authorization || "");
   if (authorization.toLowerCase().startsWith("bearer ")) {
@@ -200,6 +205,22 @@ function formatPublicSession(user, request) {
     user,
     payments: getPaymentProviders(getRequestOrigin(request)),
   };
+}
+
+function redirectToApp(response, request, params = {}, cookies = []) {
+  const target = new URL("/", getRequestOrigin(request));
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "") {
+      target.searchParams.set(key, String(value));
+    }
+  }
+
+  response.statusCode = 302;
+  response.setHeader("Location", target.toString());
+  if (cookies.length) {
+    response.setHeader("Set-Cookie", cookies);
+  }
+  response.end();
 }
 
 function getPairKey(pair) {
@@ -293,28 +314,69 @@ async function handleApi(request, response) {
 
   if (pathname === "/api/auth/oauth/start" && request.method === "GET") {
     const provider = String(url.searchParams.get("provider") || "").trim().toLowerCase();
-    const oauth = getOauthConfig(provider);
-    if (!oauth) {
+    if (!provider) {
       sendJson(response, 400, {
         ok: false,
-        message: "Unsupported OAuth provider.",
+        message: "OAuth provider is required.",
       });
       return true;
     }
 
-    if (!oauth.url) {
+    try {
+      const state = createOauthState();
+      const redirectUrl = createOauthAuthorizationUrl(provider, getRequestOrigin(request), state);
+      sendJson(response, 200, {
+        ok: true,
+        provider,
+        url: redirectUrl,
+      }, {
+        "Set-Cookie": createOauthCookie(provider, state),
+      });
+    } catch (error) {
       sendJson(response, 400, {
         ok: false,
-        message: `${oauth.label} sign-in is not configured yet.`,
+        message: error instanceof Error ? error.message : String(error),
       });
-      return true;
     }
+    return true;
+  }
 
-    sendJson(response, 200, {
-      ok: true,
-      provider: oauth.provider,
-      url: oauth.url,
-    });
+  if (
+    (pathname === "/api/auth/oauth/callback/google" && request.method === "GET")
+    || (pathname === "/api/auth/oauth/callback/apple" && (request.method === "GET" || request.method === "POST"))
+  ) {
+    const provider = pathname.endsWith("/google") ? "google" : "apple";
+
+    try {
+      const payload = request.method === "POST"
+        ? await readFormBody(request)
+        : Object.fromEntries(url.searchParams.entries());
+      const storedOauth = getOauthCookie(request);
+      const incomingState = String(payload.state || "").trim();
+
+      if (!storedOauth || storedOauth.provider !== provider || !incomingState || storedOauth.state !== incomingState) {
+        throw new Error("Sign-in session expired. Please try again.");
+      }
+
+      const oauthProfile = await exchangeOauthCode(provider, getRequestOrigin(request), payload);
+      const session = await loginWithOauth(oauthProfile);
+
+      redirectToApp(response, request, {
+        oauth: "success",
+        provider,
+      }, [
+        createSessionCookie(session.token),
+        clearOauthCookie(),
+      ]);
+    } catch (error) {
+      redirectToApp(response, request, {
+        oauth: "error",
+        provider,
+        message: error instanceof Error ? error.message : `${getOauthProviderLabel(provider)} sign-in failed.`,
+      }, [
+        clearOauthCookie(),
+      ]);
+    }
     return true;
   }
 

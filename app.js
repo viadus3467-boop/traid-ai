@@ -357,6 +357,10 @@ translations.en.misc.pushTestSent = "Test notification sent.";
 translations.en.misc.pushUnsupported = "Web push is not supported on this device yet.";
 translations.en.misc.pushPermissionBlocked = "Notification access is blocked. Allow notifications for Trade Ai in iPhone or Safari settings.";
 translations.en.misc.pushUnavailable = "Web push is not available yet. Finish the deploy and try again.";
+translations.ru.misc.oauthSuccess = "Вход выполнен.";
+translations.ru.auth.subtitle = "Вход по email, Google и Apple / iCloud.";
+translations.en.misc.oauthSuccess = "Signed in successfully.";
+translations.en.auth.subtitle = "Sign in with email, Google, or Apple / iCloud.";
 
 const fallbackSignals = [
   {
@@ -412,7 +416,7 @@ const state = {
   onboardingSeen: localStorage.getItem(STORAGE_KEYS.introSeen) === "true",
   onboardingStep: 0,
   activeTab: "home",
-  authMode: "register",
+  authMode: "login",
   notificationsEnabled: localStorage.getItem(STORAGE_KEYS.notifications) === "true",
   soundsEnabled: localStorage.getItem(STORAGE_KEYS.sounds) !== "false",
   token: localStorage.getItem(STORAGE_KEYS.token) || "",
@@ -588,6 +592,7 @@ function syncUserToState(user) {
 function clearSessionState() {
   state.user = null;
   state.token = "";
+  state.authMode = "login";
   state.liveSignals = [];
   state.liveMarketPairs = [];
   state.liveMeta = null;
@@ -775,6 +780,25 @@ function getSignalLevel(signal) {
   return { key: "weak", label: t("signal.weak") };
 }
 
+function getSignalNotificationTitle(signal) {
+  if (state.language === "ru") {
+    return `Внимание: новый сигнал - ${signal.pair}`;
+  }
+
+  return `Attention: new signal - ${signal.pair}`;
+}
+
+function getSignalNotificationBody(signal) {
+  const level = getSignalLevel(signal);
+  const direction = signal.side === "long" ? "LONG" : "SHORT";
+
+  if (state.language === "ru") {
+    return `${signal.pair} - ${direction}\nСила: ${level.label}\n${t("signal.entry")}: ${signal.entry} | TP: ${signal.takeProfit} | SL: ${signal.stopLoss}`;
+  }
+
+  return `${signal.pair} - ${direction}\nStrength: ${level.label}\n${t("signal.entry")}: ${signal.entry} | TP: ${signal.takeProfit} | SL: ${signal.stopLoss}`;
+}
+
 function getStatusLabel(status) {
   return t(`market.${status}`) || status;
 }
@@ -827,9 +851,12 @@ function showSignalNotification(signal) {
   const title = `${badge} ${level.label} • ${signal.pair}`;
   const body = `${t(`signal.${signal.side}`)} • ${t("signal.entry")}: ${signal.entry} • TP: ${signal.takeProfit} • SL: ${signal.stopLoss}`;
 
+  const notificationTitle = getSignalNotificationTitle(signal);
+  const notificationBody = getSignalNotificationBody(signal);
+
   try {
-    new Notification(title, {
-      body,
+    new Notification(notificationTitle, {
+      body: notificationBody,
       icon: "assets/logo.png",
       tag: `signal-${signal.id}`,
     });
@@ -1053,6 +1080,18 @@ async function startOAuth(provider) {
   }
 }
 
+function applyNavigationStateFromUrl() {
+  const url = new URL(window.location.href);
+  const nextTab = String(url.searchParams.get("tab") || "").trim();
+  const nextPair = String(url.searchParams.get("pair") || "").trim();
+
+  if (["home", "market", "settings"].includes(nextTab)) {
+    state.activeTab = nextTab;
+  }
+
+  state.selectedPair = nextPair || "";
+}
+
 function openPaymentSheet() {
   state.paymentSheetOpen = true;
   playUiSound("tap");
@@ -1066,6 +1105,7 @@ function closePaymentSheet() {
 
 async function loadSession() {
   state.sessionChecked = false;
+  applyNavigationStateFromUrl();
   render();
   try {
     const payload = await apiRequest("/api/session");
@@ -1090,6 +1130,7 @@ async function loadSession() {
 async function handleAuthSubmit(form) {
   const formData = new FormData(form);
   const endpoint = state.authMode === "register" ? "/api/auth/register" : "/api/auth/login";
+  const wasRegister = state.authMode === "register";
   const body = {
     email: String(formData.get("email") || "").trim(),
     password: String(formData.get("password") || "").trim(),
@@ -1103,8 +1144,9 @@ async function handleAuthSubmit(form) {
     state.token = payload.token;
     localStorage.setItem(STORAGE_KEYS.token, state.token);
     syncUserToState(payload.user);
+    state.authMode = "login";
     state.showSplash = true;
-    showToast(t("appName"), state.authMode === "register" ? t("auth.registerOk") : t("auth.loginOk"), "info");
+    showToast(t("appName"), wasRegister ? t("auth.registerOk") : t("auth.loginOk"), "info");
     render();
     void refreshMarketData(true);
     void syncPushSubscription();
@@ -1211,16 +1253,21 @@ function renderAuth() {
           <button class="auth-tab ${!isRegister ? "active" : ""}" data-action="set-auth-mode" data-mode="login" type="button">${t("auth.login")}</button>
           <button class="auth-tab ${isRegister ? "active" : ""}" data-action="set-auth-mode" data-mode="register" type="button">${t("auth.register")}</button>
         </div>
-          <form id="authForm">
-            ${isRegister ? `<label class="field"><span>${t("auth.name")}</span><input name="name" type="text" required /></label>` : ""}
-            <label class="field"><span>${t("auth.email")}</span><input name="email" type="email" required /></label>
-            <label class="field"><span>${t("auth.password")}</span><input name="password" type="password" minlength="4" required /></label>
-            <button class="primary-button" type="submit">${isRegister ? t("auth.submitRegister") : t("auth.submitLogin")}</button>
-          </form>
-        </article>
-      </div>
-    `;
-  }
+        <div class="oauth-actions">
+          <button class="ghost-button" data-action="oauth-google" type="button">${t("auth.google")}</button>
+          <button class="ghost-button" data-action="oauth-apple" type="button">${t("auth.apple")}</button>
+        </div>
+        <div class="auth-divider"><span>${t("auth.or")}</span></div>
+        <form id="authForm">
+          ${isRegister ? `<label class="field"><span>${t("auth.name")}</span><input name="name" type="text" required /></label>` : ""}
+          <label class="field"><span>${t("auth.email")}</span><input name="email" type="email" required /></label>
+          <label class="field"><span>${t("auth.password")}</span><input name="password" type="password" minlength="4" required /></label>
+          <button class="primary-button" type="submit">${isRegister ? t("auth.submitRegister") : t("auth.submitLogin")}</button>
+        </form>
+      </article>
+    </div>
+  `;
+}
 
 function renderTopbar() {
   const plan = getPlanInfo();
@@ -1806,6 +1853,24 @@ async function applyCheckoutStatusFromUrl() {
   window.history.replaceState({}, "", url.toString());
 }
 
+async function applyOauthStatusFromUrl() {
+  const url = new URL(window.location.href);
+  const status = String(url.searchParams.get("oauth") || "").trim();
+  const message = String(url.searchParams.get("message") || "").trim();
+  if (!status) return;
+
+  if (status === "success") {
+    showToast(t("appName"), t("misc.oauthSuccess"), "info");
+  } else {
+    showToast(t("appName"), message || t("misc.apiError"), "info");
+  }
+
+  url.searchParams.delete("oauth");
+  url.searchParams.delete("provider");
+  url.searchParams.delete("message");
+  window.history.replaceState({}, "", url.toString());
+}
+
 async function registerServiceWorker() {
   if (!supportsWebPush()) {
     return;
@@ -1824,5 +1889,6 @@ window.addEventListener("scroll", handleScroll, { passive: true });
 
 render();
 void applyCheckoutStatusFromUrl();
+void applyOauthStatusFromUrl();
 void loadSession();
 void registerServiceWorker();

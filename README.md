@@ -39,10 +39,16 @@ Set these in Render:
   - example: `https://your-service-name.onrender.com`
 - `TRADE_AI_VAPID_SUBJECT`
   - example: `mailto:you@example.com`
-- `TRADE_AI_GOOGLE_AUTH_URL`
-  - leave empty for now
-- `TRADE_AI_APPLE_AUTH_URL`
-  - leave empty for now
+- `TRADE_AI_GOOGLE_CLIENT_ID`
+- `TRADE_AI_GOOGLE_CLIENT_SECRET`
+- `TRADE_AI_APPLE_CLIENT_ID`
+- `TRADE_AI_APPLE_TEAM_ID`
+- `TRADE_AI_APPLE_KEY_ID`
+- `TRADE_AI_APPLE_PRIVATE_KEY`
+
+Google sign-in can work with free Google OAuth credentials.
+
+Apple / iCloud sign-in requires Apple developer credentials and service setup.
 
 ### 4. Open the deployed app
 
@@ -78,3 +84,16 @@ This project now includes a web push backend, device subscription endpoints, and
 1. Open the app from the iPhone Home Screen
 2. Turn on notifications in `Settings`
 3. Use the `Test push` action to verify delivery
+
+## OAuth login
+
+The auth screen now supports:
+
+- `Email / password`
+- `Google`
+- `Apple / iCloud`
+
+Important:
+
+- `Google` becomes fully working after you add Google OAuth client credentials in Render
+- `Apple / iCloud` needs Apple developer-side credentials and configuration before it can go live

@@ -16,6 +16,35 @@ function isValidSubscription(subscription) {
   return isObject(subscription) && typeof subscription.endpoint === "string" && subscription.endpoint.startsWith("https://");
 }
 
+function normalizeLanguage(language) {
+  return String(language || "").trim().toLowerCase() === "ru" ? "ru" : "en";
+}
+
+function getSignalStrengthLabel(confidence, language) {
+  const locale = normalizeLanguage(language);
+  if (confidence >= 88) {
+    return locale === "ru" ? "Сильный" : "Strong";
+  }
+
+  if (confidence >= 76) {
+    return locale === "ru" ? "Средний" : "Medium";
+  }
+
+  return locale === "ru" ? "Слабый" : "Weak";
+}
+
+function getSignalDirectionLabel(side) {
+  return side === "long" ? "LONG" : "SHORT";
+}
+
+function buildSignalUrl(signal) {
+  const params = new URLSearchParams({
+    tab: "market",
+    pair: signal.pair,
+  });
+  return `/?${params.toString()}`;
+}
+
 async function loadWebPush() {
   if (!webPushModulePromise) {
     webPushModulePromise = import("web-push")
@@ -72,7 +101,7 @@ async function ensurePushClient() {
   };
 }
 
-function buildSignalNotification(signal) {
+function buildSignalNotificationLegacy(signal) {
   const level = signal.confidence >= 88 ? "STRONG" : signal.confidence >= 76 ? "MEDIUM" : "WEAK";
   const emoji = signal.side === "long" ? "🟢" : "🔴";
   const direction = signal.side === "long" ? "LONG" : "SHORT";
@@ -90,10 +119,46 @@ function buildSignalNotification(signal) {
   };
 }
 
-function buildTestNotification() {
+function buildTestNotificationLegacy() {
   return {
     title: "Trade Ai",
     body: "Web push is enabled. Strong signals will now arrive on this device.",
+    tag: `push-test-${Date.now()}`,
+    data: {
+      url: "/",
+      kind: "test",
+    },
+  };
+}
+
+function buildSignalNotification(signal, language = "en") {
+  const locale = normalizeLanguage(language);
+  const direction = getSignalDirectionLabel(signal.side);
+  const strength = getSignalStrengthLabel(signal.confidence, locale);
+  const entryLabel = locale === "ru" ? "Вход" : "Entry";
+  const strengthLabel = locale === "ru" ? "Сила" : "Strength";
+
+  return {
+    title: locale === "ru" ? `Внимание: новый сигнал - ${signal.pair}` : `Attention: new signal - ${signal.pair}`,
+    body: `${signal.pair} - ${direction}\n${strengthLabel}: ${strength}\n${entryLabel}: ${signal.entry} | TP: ${signal.takeProfit} | SL: ${signal.stopLoss}`,
+    tag: `signal-${signal.id}`,
+    data: {
+      pair: signal.pair,
+      side: signal.side,
+      signalId: signal.id,
+      url: buildSignalUrl(signal),
+    },
+  };
+}
+
+function buildTestNotification(language = "en") {
+  const locale = normalizeLanguage(language);
+
+  return {
+    title: locale === "ru" ? "Trade Ai: push включен" : "Trade Ai: push enabled",
+    body: locale === "ru"
+      ? "Новые сильные сигналы теперь будут приходить на это устройство."
+      : "New strong signals will now arrive on this device.",
     tag: `push-test-${Date.now()}`,
     data: {
       url: "/",
@@ -206,12 +271,14 @@ export async function removePushSubscription(userId, endpoint) {
 }
 
 export async function sendTestPushNotification(userId) {
-  const records = await listUserSubscriptionRecords(userId);
+  const db = await readDb();
+  const records = (db.pushSubscriptions || []).filter((entry) => entry.userId === userId);
   if (!records.length) {
     throw new Error("No push-enabled device is connected yet.");
   }
 
-  return sendPushPayload(records, buildTestNotification());
+  const user = (db.users || []).find((entry) => entry.id === userId);
+  return sendPushPayload(records, buildTestNotification(user?.settings?.language));
 }
 
 export async function dispatchSignalPushes(snapshot) {
@@ -249,7 +316,7 @@ export async function dispatchSignalPushes(snapshot) {
 
     for (const signal of newSignals.slice(0, 3)) {
       try {
-        await sendPushPayload(userSubscriptions, buildSignalNotification(signal));
+        await sendPushPayload(userSubscriptions, buildSignalNotification(signal, user.settings?.language));
       } catch (error) {
         console.error("Trade Ai push send failed:", error instanceof Error ? error.message : String(error));
       }
