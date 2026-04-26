@@ -49,9 +49,29 @@ function defaultUserPayload({ name, email, password, language, theme }) {
       provider: null,
       renewsAt: null,
     },
+    oauthAccounts: [],
     createdAt: nowIso(),
     updatedAt: nowIso(),
   };
+}
+
+function defaultOauthUserPayload({ provider, providerUserId, email, name }) {
+  const normalizedEmail = normalizeEmail(email) || `${providerUserId}@${provider}.trade-ai.local`;
+  const nextUser = defaultUserPayload({
+    name,
+    email: normalizedEmail,
+    password: randomBytes(24).toString("hex"),
+  });
+  nextUser.passwordHash = "";
+  nextUser.oauthAccounts = [
+    {
+      provider,
+      providerUserId,
+      email: normalizedEmail,
+      linkedAt: nowIso(),
+    },
+  ];
+  return nextUser;
 }
 
 function assertCredentials(email, password) {
@@ -139,6 +159,82 @@ export async function logoutToken(token) {
     db.sessions = db.sessions.filter((session) => session.token !== token);
     return db;
   });
+}
+
+export async function createSessionForUserId(userId) {
+  const nextSession = createSessionRecord(userId);
+
+  await updateDb((db) => {
+    db.sessions = db.sessions.filter((session) => {
+      const fresh = new Date(session.expiresAt).getTime() > Date.now();
+      return fresh && session.userId !== userId;
+    });
+    db.sessions.push(nextSession);
+    return db;
+  });
+
+  return nextSession;
+}
+
+export async function loginWithOauth({ provider, providerUserId, email, name }) {
+  const normalizedProvider = String(provider || "").trim().toLowerCase();
+  const normalizedProviderUserId = String(providerUserId || "").trim();
+  const normalizedEmail = normalizeEmail(email);
+
+  if (!normalizedProvider || !normalizedProviderUserId) {
+    throw new Error("OAuth provider data is incomplete.");
+  }
+
+  let publicProfile = null;
+  let nextSession = null;
+
+  await updateDb((db) => {
+    let user = db.users.find((candidate) =>
+      Array.isArray(candidate.oauthAccounts) &&
+      candidate.oauthAccounts.some((account) => account.provider === normalizedProvider && account.providerUserId === normalizedProviderUserId),
+    );
+
+    if (!user && normalizedEmail) {
+      user = db.users.find((candidate) => candidate.email === normalizedEmail);
+      if (user) {
+        user.oauthAccounts = Array.isArray(user.oauthAccounts) ? user.oauthAccounts : [];
+        user.oauthAccounts.push({
+          provider: normalizedProvider,
+          providerUserId: normalizedProviderUserId,
+          email: normalizedEmail,
+          linkedAt: nowIso(),
+        });
+        if (name && (!user.name || user.name === "Trade User")) {
+          user.name = String(name).trim() || user.name;
+        }
+        user.updatedAt = nowIso();
+      }
+    }
+
+    if (!user) {
+      user = defaultOauthUserPayload({
+        provider: normalizedProvider,
+        providerUserId: normalizedProviderUserId,
+        email: normalizedEmail,
+        name,
+      });
+      db.users.push(user);
+    }
+
+    nextSession = createSessionRecord(user.id);
+    db.sessions = db.sessions.filter((session) => {
+      const fresh = new Date(session.expiresAt).getTime() > Date.now();
+      return fresh && session.userId !== user.id;
+    });
+    db.sessions.push(nextSession);
+    publicProfile = publicUser(user);
+    return db;
+  });
+
+  return {
+    token: nextSession.token,
+    user: publicProfile,
+  };
 }
 
 export async function updateUserSettings(userId, patch) {
