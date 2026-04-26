@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { activatePromoCode, getUserFromToken, loginUser, logoutToken, registerUser, updateUserSettings } from "./backend/auth.mjs";
 import { getDashboard, getSnapshot } from "./backend/engine.mjs";
+import { dispatchSignalPushes, getPushRuntimeConfig, removePushSubscription, savePushSubscription, sendTestPushNotification } from "./backend/push.mjs";
 import {
   confirmStripePaymentSession,
   createPaymentSession,
@@ -19,6 +20,8 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 const envFile = path.join(root, ".env");
 const SESSION_COOKIE_NAME = "trade_ai_session";
 const SESSION_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
+const PUSH_LOOP_MS = 75_000;
+let pushLoopPromise = null;
 
 const contentTypes = {
   ".html": "text/html; charset=utf-8",
@@ -258,6 +261,15 @@ async function handleApi(request, response) {
     return true;
   }
 
+  if (pathname === "/api/push/config" && request.method === "GET") {
+    const config = await getPushRuntimeConfig();
+    sendJson(response, 200, {
+      ok: true,
+      ...config,
+    });
+    return true;
+  }
+
   if (pathname === "/api/auth/register" && request.method === "POST") {
     try {
       const payload = await readJsonBody(request);
@@ -366,6 +378,71 @@ async function handleApi(request, response) {
       const payload = await readJsonBody(request);
       const updatedUser = await activatePromoCode(user.id, payload.code);
       sendJson(response, 200, formatPublicSession(updatedUser, request));
+    } catch (error) {
+      sendJson(response, 400, {
+        ok: false,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+    return true;
+  }
+
+  if (pathname === "/api/push/subscribe" && request.method === "POST") {
+    const user = await requireUser(request, response);
+    if (!user) {
+      return true;
+    }
+
+    try {
+      const payload = await readJsonBody(request);
+      const result = await savePushSubscription(user.id, payload.subscription);
+      sendJson(response, 200, {
+        ok: true,
+        ...result,
+      });
+    } catch (error) {
+      sendJson(response, 400, {
+        ok: false,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+    return true;
+  }
+
+  if (pathname === "/api/push/unsubscribe" && request.method === "POST") {
+    const user = await requireUser(request, response);
+    if (!user) {
+      return true;
+    }
+
+    try {
+      const payload = await readJsonBody(request);
+      const result = await removePushSubscription(user.id, payload.endpoint);
+      sendJson(response, 200, {
+        ok: true,
+        ...result,
+      });
+    } catch (error) {
+      sendJson(response, 400, {
+        ok: false,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+    return true;
+  }
+
+  if (pathname === "/api/push/test" && request.method === "POST") {
+    const user = await requireUser(request, response);
+    if (!user) {
+      return true;
+    }
+
+    try {
+      const result = await sendTestPushNotification(user.id);
+      sendJson(response, 200, {
+        ok: true,
+        ...result,
+      });
     } catch (error) {
       sendJson(response, 400, {
         ok: false,
@@ -551,6 +628,25 @@ async function handleApi(request, response) {
   return false;
 }
 
+async function runPushLoop() {
+  if (pushLoopPromise) {
+    return pushLoopPromise;
+  }
+
+  pushLoopPromise = (async () => {
+    try {
+      const snapshot = await getSnapshot(true);
+      await dispatchSignalPushes(snapshot);
+    } catch (error) {
+      console.error("Trade Ai push loop error:", error instanceof Error ? error.message : String(error));
+    } finally {
+      pushLoopPromise = null;
+    }
+  })();
+
+  return pushLoopPromise;
+}
+
 const server = http.createServer(async (request, response) => {
   if ((request.url || "").startsWith("/api/")) {
     const handled = await handleApi(request, response);
@@ -587,4 +683,8 @@ const server = http.createServer(async (request, response) => {
 
 server.listen(port, host, () => {
   console.log(`Trade Ai is running at http://${host}:${port}`);
+  void runPushLoop();
+  setInterval(() => {
+    void runPushLoop();
+  }, PUSH_LOOP_MS);
 });

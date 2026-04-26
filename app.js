@@ -343,6 +343,21 @@ const translations = {
   },
 };
 
+translations.ru.settings.notificationsHelp = "Откройте Trade Ai с экрана Домой на iPhone и разрешите push-уведомления Safari/Web App.";
+translations.ru.settings.testPush = "Тестовый push";
+translations.ru.misc.pushLinked = "Это устройство подключено к web push.";
+translations.ru.misc.pushTestSent = "Тестовое уведомление отправлено.";
+translations.ru.misc.pushUnsupported = "На этом устройстве web push пока не поддерживается.";
+translations.ru.misc.pushPermissionBlocked = "Доступ к уведомлениям заблокирован. Разрешите уведомления для Trade Ai в настройках iPhone или Safari.";
+translations.ru.misc.pushUnavailable = "Web push пока недоступен. Завершите деплой и повторите попытку.";
+translations.en.settings.notificationsHelp = "Open Trade Ai from the iPhone Home Screen and allow Safari/Web App push notifications.";
+translations.en.settings.testPush = "Test push";
+translations.en.misc.pushLinked = "This device is connected to web push.";
+translations.en.misc.pushTestSent = "Test notification sent.";
+translations.en.misc.pushUnsupported = "Web push is not supported on this device yet.";
+translations.en.misc.pushPermissionBlocked = "Notification access is blocked. Allow notifications for Trade Ai in iPhone or Safari settings.";
+translations.en.misc.pushUnavailable = "Web push is not available yet. Finish the deploy and try again.";
+
 const fallbackSignals = [
   {
     id: "eurusd-long",
@@ -424,6 +439,7 @@ let liveRefreshIntervalId = null;
 let splashTimerId = null;
 let lastScrollY = 0;
 let audioContext = null;
+let serviceWorkerRegistrationPromise = null;
 
 function isStandaloneMode() {
   return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
@@ -613,6 +629,115 @@ async function apiRequest(path, options = {}) {
   }
 
   return payload;
+}
+
+function supportsWebPush() {
+  return "serviceWorker" in navigator && "PushManager" in window && typeof Notification !== "undefined";
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = window.atob(base64);
+  const output = new Uint8Array(raw.length);
+  for (let index = 0; index < raw.length; index += 1) {
+    output[index] = raw.charCodeAt(index);
+  }
+  return output;
+}
+
+async function getServiceWorkerRegistration() {
+  if (!supportsWebPush()) {
+    return null;
+  }
+
+  if (!serviceWorkerRegistrationPromise) {
+    serviceWorkerRegistrationPromise = navigator.serviceWorker
+      .register("./sw.js")
+      .then(() => navigator.serviceWorker.ready)
+      .catch(() => null);
+  }
+
+  return serviceWorkerRegistrationPromise;
+}
+
+async function fetchPushConfig() {
+  return apiRequest("/api/push/config");
+}
+
+async function subscribeCurrentDeviceToPush() {
+  if (!state.user || !state.notificationsEnabled) {
+    return false;
+  }
+
+  if (!supportsWebPush()) {
+    throw new Error(t("misc.pushUnsupported"));
+  }
+
+  if (Notification.permission !== "granted") {
+    throw new Error(t("misc.pushPermissionBlocked"));
+  }
+
+  const config = await fetchPushConfig();
+  if (!config.supported || !config.publicKey) {
+    throw new Error(t("misc.pushUnavailable"));
+  }
+
+  const registration = await getServiceWorkerRegistration();
+  if (!registration) {
+    throw new Error(t("misc.pushUnsupported"));
+  }
+
+  let subscription = await registration.pushManager.getSubscription();
+  if (!subscription) {
+    subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(config.publicKey),
+    });
+  }
+
+  await apiRequest("/api/push/subscribe", {
+    method: "POST",
+    body: {
+      subscription: subscription.toJSON(),
+    },
+  });
+
+  return true;
+}
+
+async function unsubscribeCurrentDeviceFromPush() {
+  const registration = await getServiceWorkerRegistration();
+  const subscription = registration ? await registration.pushManager.getSubscription() : null;
+  if (!subscription) {
+    return false;
+  }
+
+  await apiRequest("/api/push/unsubscribe", {
+    method: "POST",
+    body: {
+      endpoint: subscription.endpoint,
+    },
+  }).catch(() => null);
+
+  await subscription.unsubscribe().catch(() => null);
+  return true;
+}
+
+async function syncPushSubscription() {
+  if (!state.user || !state.notificationsEnabled || !supportsWebPush()) {
+    return false;
+  }
+
+  if (Notification.permission !== "granted") {
+    return false;
+  }
+
+  try {
+    return await subscribeCurrentDeviceToPush();
+  } catch {
+    return false;
+  }
 }
 
 function getSignalFeed() {
@@ -807,16 +932,48 @@ async function savePreferences(patch, toastKey) {
 }
 
 async function toggleNotifications() {
-  if (!state.notificationsEnabled && typeof Notification !== "undefined") {
+  if (!state.notificationsEnabled) {
+    if (!supportsWebPush()) {
+      showToast(t("appName"), t("misc.pushUnsupported"), "info");
+      return;
+    }
+
     const permission = await Notification.requestPermission();
+    if (permission === "denied") {
+      showToast(t("appName"), t("misc.pushPermissionBlocked"), "info");
+      return;
+    }
+
     if (permission !== "granted") {
       return;
     }
+
+    await savePreferences({ notificationsEnabled: true }, "misc.notificationsOn");
+
+    try {
+      await subscribeCurrentDeviceToPush();
+      showToast(t("appName"), t("misc.pushLinked"), "info");
+    } catch (error) {
+      showToast(t("appName"), error instanceof Error ? error.message : t("misc.pushUnavailable"), "info");
+    }
+    return;
   }
-  await savePreferences(
-    { notificationsEnabled: !state.notificationsEnabled },
-    !state.notificationsEnabled ? "misc.notificationsOn" : "misc.notificationsOff",
-  );
+
+  await unsubscribeCurrentDeviceFromPush();
+  await savePreferences({ notificationsEnabled: false }, "misc.notificationsOff");
+}
+
+async function sendTestPush() {
+  try {
+    await subscribeCurrentDeviceToPush();
+    await apiRequest("/api/push/test", {
+      method: "POST",
+      body: {},
+    });
+    showToast(t("appName"), t("misc.pushTestSent"), "info");
+  } catch (error) {
+    showToast(t("appName"), error instanceof Error ? error.message : t("misc.pushUnavailable"), "info");
+  }
 }
 
 async function toggleSounds() {
@@ -925,6 +1082,7 @@ async function loadSession() {
     render();
     if (state.user) {
       void refreshMarketData(true);
+      void syncPushSubscription();
     }
   }
 }
@@ -949,6 +1107,7 @@ async function handleAuthSubmit(form) {
     showToast(t("appName"), state.authMode === "register" ? t("auth.registerOk") : t("auth.loginOk"), "info");
     render();
     void refreshMarketData(true);
+    void syncPushSubscription();
   } catch {
     showToast(t("appName"), t("auth.invalid"), "info");
   }
@@ -1289,10 +1448,15 @@ function renderSettingsScreen() {
             <button class="ghost-button" data-action="toggle-notifications" type="button">${state.notificationsEnabled ? t("actions.disable") : t("actions.enable")}</button>
           </div>
           <div class="settings-row">
+            <span>${t("settings.testPush")}</span>
+            <button class="ghost-button" data-action="send-test-push" type="button">${t("settings.testPush")}</button>
+          </div>
+          <div class="settings-row">
             <span>${t("settings.sounds")}</span>
             <button class="ghost-button" data-action="toggle-sounds" type="button">${state.soundsEnabled ? t("actions.disable") : t("actions.enable")}</button>
           </div>
         </div>
+        <p class="helper-text">${t("settings.notificationsHelp")}</p>
       </article>
 
       <article class="subscription-card">
@@ -1545,6 +1709,11 @@ function handleClick(event) {
     return;
   }
 
+  if (action === "send-test-push") {
+    void sendTestPush();
+    return;
+  }
+
   if (action === "toggle-sounds") {
     void toggleSounds();
     return;
@@ -1638,12 +1807,12 @@ async function applyCheckoutStatusFromUrl() {
 }
 
 async function registerServiceWorker() {
-  if (!("serviceWorker" in navigator)) {
+  if (!supportsWebPush()) {
     return;
   }
 
   try {
-    await navigator.serviceWorker.register("./sw.js");
+    await getServiceWorkerRegistration();
   } catch {
     return;
   }

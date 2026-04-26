@@ -1,4 +1,4 @@
-const CACHE_NAME = "trade-ai-v4";
+const CACHE_NAME = "trade-ai-v5";
 const ASSETS = [
   "./",
   "./index.html",
@@ -39,15 +39,51 @@ self.addEventListener("fetch", (event) => {
   );
 });
 
+self.addEventListener("push", (event) => {
+  const fallback = {
+    title: "Trade Ai",
+    body: "A new strong signal is ready.",
+    tag: `push-${Date.now()}`,
+    data: {
+      url: "./",
+    },
+  };
+
+  let payload = fallback;
+
+  try {
+    if (event.data) {
+      payload = {
+        ...fallback,
+        ...event.data.json(),
+      };
+    }
+  } catch {
+    payload = fallback;
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: "./assets/icon-maskable-512.png",
+      badge: "./assets/icon-maskable-512.png",
+      tag: payload.tag,
+      data: payload.data,
+      renotify: true,
+    }),
+  );
+});
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  const targetUrl = event.notification?.data?.url || "./";
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       if (clients.length > 0) {
         return clients[0].focus();
       }
 
-      return self.clients.openWindow("./");
+      return self.clients.openWindow(targetUrl);
     }),
   );
 });

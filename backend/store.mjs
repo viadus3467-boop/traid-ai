@@ -10,6 +10,12 @@ const defaultDb = {
   users: [],
   sessions: [],
   payments: [],
+  pushSubscriptions: [],
+  pushConfig: {
+    vapidPublicKey: "",
+    vapidPrivateKey: "",
+    subject: "",
+  },
 };
 
 let writeQueue = Promise.resolve();

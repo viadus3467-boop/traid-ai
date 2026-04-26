@@ -37,6 +37,8 @@ Set these in Render:
 
 - `TRADE_AI_PUBLIC_URL`
   - example: `https://your-service-name.onrender.com`
+- `TRADE_AI_VAPID_SUBJECT`
+  - example: `mailto:you@example.com`
 - `TRADE_AI_GOOGLE_AUTH_URL`
   - leave empty for now
 - `TRADE_AI_APPLE_AUTH_URL`
@@ -71,4 +73,8 @@ For real notifications on iPhone:
 4. Open the installed Web App
 5. Grant notification permission
 
-The current project is prepared for that flow, but true remote push delivery still needs a push subscription backend.
+This project now includes a web push backend, device subscription endpoints, and a service worker push handler. After deploy:
+
+1. Open the app from the iPhone Home Screen
+2. Turn on notifications in `Settings`
+3. Use the `Test push` action to verify delivery
