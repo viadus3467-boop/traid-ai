@@ -1,4 +1,11 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
+import {
+  ensureUserSettings,
+  LANGUAGE_CODES,
+  normalizeEnabledPairs,
+  normalizePreferredSessions,
+  normalizeWatchlist,
+} from "./preferences.mjs";
 import { publicUser, readDb, updateDb } from "./store.mjs";
 
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
@@ -27,12 +34,33 @@ function createSessionRecord(userId) {
 }
 
 function defaultSettings(overrides = {}) {
-  return {
+  return ensureUserSettings({
     language: overrides.language || "ru",
     theme: overrides.theme || "dark",
-    notificationsEnabled: Boolean(overrides.notificationsEnabled),
-    soundsEnabled: "soundsEnabled" in overrides ? Boolean(overrides.soundsEnabled) : true,
-  };
+    notificationsEnabled: overrides.notificationsEnabled,
+    soundsEnabled: overrides.soundsEnabled,
+    enabledPairs: overrides.enabledPairs,
+    preferredSessions: overrides.preferredSessions,
+    watchlist: overrides.watchlist,
+    avatarDataUrl: overrides.avatarDataUrl,
+  });
+}
+
+function normalizeAvatarDataUrl(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  if (!trimmed.startsWith("data:image/") || trimmed.length > 1_500_000) {
+    throw new Error("Avatar image is invalid.");
+  }
+
+  return trimmed;
 }
 
 function defaultUserPayload({ name, email, password, language, theme }) {
@@ -239,7 +267,7 @@ export async function loginWithOauth({ provider, providerUserId, email, name }) 
 
 export async function updateUserSettings(userId, patch) {
   const allowedThemes = new Set(["dark", "light"]);
-  const allowedLanguages = new Set(["ru", "en"]);
+  const allowedLanguages = new Set(LANGUAGE_CODES);
 
   const db = await updateDb((nextDb) => {
     const user = nextDb.users.find((candidate) => candidate.id === userId);
@@ -270,6 +298,25 @@ export async function updateUserSettings(userId, patch) {
     if (typeof patch.signalLimit === "number") {
       const maxLimit = user.plan === "plus" ? 10 : 2;
       user.signalLimit = Math.max(1, Math.min(maxLimit, Math.round(patch.signalLimit)));
+    }
+
+    if (Array.isArray(patch.enabledPairs)) {
+      user.settings.enabledPairs = normalizeEnabledPairs(patch.enabledPairs);
+    }
+
+    if (Array.isArray(patch.preferredSessions)) {
+      user.settings.preferredSessions = normalizePreferredSessions(patch.preferredSessions);
+    }
+
+    if (Array.isArray(patch.watchlist)) {
+      user.settings.watchlist = normalizeWatchlist(patch.watchlist);
+    }
+
+    if ("avatarDataUrl" in patch) {
+      const nextAvatar = normalizeAvatarDataUrl(patch.avatarDataUrl);
+      if (nextAvatar !== null) {
+        user.settings.avatarDataUrl = nextAvatar;
+      }
     }
 
     user.updatedAt = nowIso();

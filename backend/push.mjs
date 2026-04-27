@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { recordPushHistory } from "./history.mjs";
+import { filterSignalsForUser, getVisibleSignalLimit } from "./preferences.mjs";
 import { readDb, updateDb } from "./store.mjs";
 
 const DEFAULT_PUSH_SUBJECT = String(process.env.TRADE_AI_VAPID_SUBJECT || "mailto:hello@trade-ai.app").trim();
@@ -25,11 +27,9 @@ function getSignalStrengthLabel(confidence, language) {
   if (confidence >= 88) {
     return locale === "ru" ? "Сильный" : "Strong";
   }
-
   if (confidence >= 76) {
     return locale === "ru" ? "Средний" : "Medium";
   }
-
   return locale === "ru" ? "Слабый" : "Weak";
 }
 
@@ -101,36 +101,6 @@ async function ensurePushClient() {
   };
 }
 
-function buildSignalNotificationLegacy(signal) {
-  const level = signal.confidence >= 88 ? "STRONG" : signal.confidence >= 76 ? "MEDIUM" : "WEAK";
-  const emoji = signal.side === "long" ? "🟢" : "🔴";
-  const direction = signal.side === "long" ? "LONG" : "SHORT";
-
-  return {
-    title: `${emoji} ${level} ${direction} — ${signal.pair}`,
-    body: `Entry: ${signal.entry}\nTP: ${signal.takeProfit}\nSL: ${signal.stopLoss}\nAI Confidence: ${signal.confidence}%`,
-    tag: `signal-${signal.id}`,
-    data: {
-      pair: signal.pair,
-      side: signal.side,
-      signalId: signal.id,
-      url: "/",
-    },
-  };
-}
-
-function buildTestNotificationLegacy() {
-  return {
-    title: "Trade Ai",
-    body: "Web push is enabled. Strong signals will now arrive on this device.",
-    tag: `push-test-${Date.now()}`,
-    data: {
-      url: "/",
-      kind: "test",
-    },
-  };
-}
-
 function buildSignalNotification(signal, language = "en") {
   const locale = normalizeLanguage(language);
   const direction = getSignalDirectionLabel(signal.side);
@@ -153,9 +123,8 @@ function buildSignalNotification(signal, language = "en") {
 
 function buildTestNotification(language = "en") {
   const locale = normalizeLanguage(language);
-
   return {
-    title: locale === "ru" ? "Trade Ai: push включен" : "Trade Ai: push enabled",
+    title: locale === "ru" ? "Trade Ai: push включён" : "Trade Ai: push enabled",
     body: locale === "ru"
       ? "Новые сильные сигналы теперь будут приходить на это устройство."
       : "New strong signals will now arrive on this device.",
@@ -207,11 +176,6 @@ async function sendPushPayload(subscriptionRecords, payload) {
     sent,
     removed,
   };
-}
-
-async function listUserSubscriptionRecords(userId) {
-  const db = await readDb();
-  return (db.pushSubscriptions || []).filter((entry) => entry.userId === userId);
 }
 
 export async function getPushRuntimeConfig() {
@@ -278,7 +242,17 @@ export async function sendTestPushNotification(userId) {
   }
 
   const user = (db.users || []).find((entry) => entry.id === userId);
-  return sendPushPayload(records, buildTestNotification(user?.settings?.language));
+  const payload = buildTestNotification(user?.settings?.language);
+  const result = await sendPushPayload(records, payload);
+  await recordPushHistory({
+    userId,
+    kind: "test",
+    title: payload.title,
+    body: payload.body,
+    sent: result.sent,
+    removed: result.removed,
+  });
+  return result;
 }
 
 export async function dispatchSignalPushes(snapshot) {
@@ -296,8 +270,7 @@ export async function dispatchSignalPushes(snapshot) {
   const nextSignalIdsByUser = new Map();
 
   for (const user of db.users || []) {
-    const enabled = Boolean(user.settings?.notificationsEnabled);
-    if (!enabled) {
+    if (!Boolean(user.settings?.notificationsEnabled)) {
       continue;
     }
 
@@ -306,7 +279,7 @@ export async function dispatchSignalPushes(snapshot) {
       continue;
     }
 
-    const visibleSignals = signals.slice(0, user.plan === "plus" ? 10 : 2);
+    const visibleSignals = filterSignalsForUser(signals, user).slice(0, getVisibleSignalLimit(user));
     const previousIds = new Set(user.pushState?.lastSignalIds || []);
     const newSignals = visibleSignals.filter((signal) => !previousIds.has(signal.id));
 
@@ -316,7 +289,17 @@ export async function dispatchSignalPushes(snapshot) {
 
     for (const signal of newSignals.slice(0, 3)) {
       try {
-        await sendPushPayload(userSubscriptions, buildSignalNotification(signal, user.settings?.language));
+        const payload = buildSignalNotification(signal, user.settings?.language);
+        const result = await sendPushPayload(userSubscriptions, payload);
+        await recordPushHistory({
+          userId: user.id,
+          kind: "signal",
+          title: payload.title,
+          body: payload.body,
+          signal,
+          sent: result.sent,
+          removed: result.removed,
+        });
       } catch (error) {
         console.error("Trade Ai push send failed:", error instanceof Error ? error.message : String(error));
       }

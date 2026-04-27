@@ -4,9 +4,12 @@ import { stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { activatePromoCode, getUserFromToken, loginUser, loginWithOauth, logoutToken, registerUser, updateUserSettings } from "./backend/auth.mjs";
-import { getDashboard, getSnapshot } from "./backend/engine.mjs";
+import { getSnapshot } from "./backend/engine.mjs";
+import { getUserActivityFromDb, registerSnapshotForUser } from "./backend/history.mjs";
 import { createOauthAuthorizationUrl, createOauthState, exchangeOauthCode, getOauthProviderLabel } from "./backend/oauth.mjs";
+import { filterMarketForUser, filterSignalsForUser, getVisibleSignalLimit, sortMarketForUser } from "./backend/preferences.mjs";
 import { dispatchSignalPushes, getPushRuntimeConfig, removePushSubscription, savePushSubscription, sendTestPushNotification } from "./backend/push.mjs";
+import { publicUser, readDb } from "./backend/store.mjs";
 import {
   confirmStripePaymentSession,
   createPaymentSession,
@@ -199,10 +202,17 @@ async function getAuthedUser(request) {
   return getUserFromToken(getAuthToken(request));
 }
 
+function toResponseUser(user) {
+  if (!user) {
+    return null;
+  }
+  return "passwordHash" in user ? publicUser(user) : user;
+}
+
 function formatPublicSession(user, request) {
   return {
     ok: true,
-    user,
+    user: toResponseUser(user),
     payments: getPaymentProviders(getRequestOrigin(request)),
   };
 }
@@ -227,26 +237,56 @@ function getPairKey(pair) {
   return String(pair || "").replace(/[^a-z0-9]/giu, "").toLowerCase();
 }
 
-function filterAnalytics(analytics, pair) {
-  if (!pair) {
-    return analytics;
+function filterAnalytics(analytics, allowedIds) {
+  if (!allowedIds?.size) {
+    return {};
   }
 
-  const key = getPairKey(pair);
-  return key && analytics[key] ? { [key]: analytics[key] } : {};
+  return Object.fromEntries(
+    Object.entries(analytics || {}).filter(([key]) => allowedIds.has(key)),
+  );
+}
+
+function buildNoTradeZones(market) {
+  return (market || [])
+    .filter((entry) => entry.status === "no_trade" && entry.noTradeReason)
+    .slice(0, 6)
+    .map((entry) => ({
+      pair: entry.pair,
+      session: entry.session,
+      sessionLabel: entry.sessionLabel,
+      reason: entry.noTradeReason,
+      summary: entry.summary,
+    }));
 }
 
 function applyDashboardFilters(snapshot, user, pair) {
-  const filteredSignals = pair
-    ? snapshot.signals.filter((signal) => signal.pair === pair)
-    : snapshot.signals;
-  const signalLimit = Math.max(1, Number(user.signalLimit || (user.plan === "plus" ? 10 : 2)));
+  const filteredMarket = sortMarketForUser(filterMarketForUser(snapshot.market || [], user, pair), user);
+  const allowedIds = new Set(filteredMarket.map((entry) => entry.id));
+  const filteredSignals = filterSignalsForUser(snapshot.signals || [], user, pair);
+  const signalLimit = getVisibleSignalLimit(user);
 
   return {
     ...snapshot,
     signals: filteredSignals.slice(0, signalLimit),
-    market: pair ? snapshot.market.filter((entry) => entry.pair === pair) : snapshot.market,
-    analytics: filterAnalytics(snapshot.analytics || {}, pair),
+    market: filteredMarket,
+    analytics: filterAnalytics(snapshot.analytics || {}, allowedIds),
+  };
+}
+
+async function buildAppPayload(snapshot, user, pair) {
+  await registerSnapshotForUser(user, snapshot);
+  const filtered = applyDashboardFilters(snapshot, user, pair);
+  const db = await readDb();
+  const activity = getUserActivityFromDb(db, user.id);
+
+  return {
+    ok: true,
+    user: publicUser(user),
+    ...filtered,
+    signalHistory: activity.signalHistory,
+    pushHistory: activity.pushHistory,
+    noTradeZones: buildNoTradeZones(filtered.market),
   };
 }
 
@@ -623,12 +663,8 @@ async function handleApi(request, response) {
 
     try {
       const pair = url.searchParams.get("pair");
-      const dashboard = await getDashboard(user.plan);
-      sendJson(response, 200, {
-        ok: true,
-        user,
-        ...applyDashboardFilters(dashboard, user, pair),
-      });
+      const snapshot = await getSnapshot(false);
+      sendJson(response, 200, await buildAppPayload(snapshot, user, pair));
     } catch (error) {
       sendJson(response, 502, {
         ok: false,
@@ -648,11 +684,7 @@ async function handleApi(request, response) {
     try {
       const pair = url.searchParams.get("pair");
       const snapshot = await getSnapshot(false);
-      sendJson(response, 200, {
-        ok: true,
-        user,
-        ...applyDashboardFilters(snapshot, user, pair),
-      });
+      sendJson(response, 200, await buildAppPayload(snapshot, user, pair));
     } catch (error) {
       sendJson(response, 502, {
         ok: false,
@@ -672,11 +704,7 @@ async function handleApi(request, response) {
     try {
       const pair = url.searchParams.get("pair");
       const snapshot = await getSnapshot(true);
-      sendJson(response, 200, {
-        ok: true,
-        user,
-        ...applyDashboardFilters(snapshot, user, pair),
-      });
+      sendJson(response, 200, await buildAppPayload(snapshot, user, pair));
     } catch (error) {
       sendJson(response, 502, {
         ok: false,

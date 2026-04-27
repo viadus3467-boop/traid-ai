@@ -7,6 +7,7 @@ const STORAGE_KEYS = {
   sounds: "trade-ai-sounds",
   signalLimit: "trade-ai-signal-limit",
   apiBase: "trade-ai-api-base",
+  tradeCapital: "trade-ai-trade-capital",
 };
 
 const API_BASE_URL = String(window.TRADE_AI_API_BASE || localStorage.getItem(STORAGE_KEYS.apiBase) || "").replace(/\/$/, "");
@@ -361,6 +362,408 @@ translations.ru.misc.oauthSuccess = "Вход выполнен.";
 translations.ru.auth.subtitle = "Вход по email, Google и Apple / iCloud.";
 translations.en.misc.oauthSuccess = "Signed in successfully.";
 translations.en.auth.subtitle = "Sign in with email, Google, or Apple / iCloud.";
+Object.assign(translations.ru.home, {
+  sessions: "Торговые сессии",
+  watchlist: "Watchlist",
+  noTradeTitle: "No trade zone",
+  noTradeCopy: "Сейчас AI избегает входов по этим парам и показывает причину.",
+  historyTitle: "История сигналов",
+  historyEmpty: "Новые сигналы появятся здесь, как только они пройдут фильтры.",
+  statsWinRate: "Win rate",
+  statsOpen: "Открыто",
+});
+Object.assign(translations.en.home, {
+  sessions: "Trading sessions",
+  watchlist: "Watchlist",
+  noTradeTitle: "No trade zone",
+  noTradeCopy: "AI is avoiding entries on these pairs right now and shows the reason.",
+  historyTitle: "Signal history",
+  historyEmpty: "New signals will appear here once they pass the filters.",
+  statsWinRate: "Win rate",
+  statsOpen: "Open",
+});
+Object.assign(translations.ru.market, {
+  details: "Детали пары",
+  session: "Сессия",
+  structure: "Структура",
+  support: "Поддержка",
+  resistance: "Сопротивление",
+  volume: "Объём",
+  change: "Изменение",
+  summary: "AI Summary",
+  noTrade: "No trade zone",
+  noTradeReady: "Причина запрета на вход",
+  selectHint: "Выберите пару или откройте её из сигнала.",
+});
+Object.assign(translations.en.market, {
+  details: "Pair details",
+  session: "Session",
+  structure: "Structure",
+  support: "Support",
+  resistance: "Resistance",
+  volume: "Volume",
+  change: "Change",
+  summary: "AI Summary",
+  noTrade: "No trade zone",
+  noTradeReady: "Why trading is blocked",
+  selectHint: "Select a pair or open it from a signal.",
+});
+translations.ru.market.no_trade = "No trade zone";
+translations.en.market.no_trade = "No trade zone";
+Object.assign(translations.ru.settings, {
+  sessions: "Сессии",
+  sessionsHint: "Оставьте только те сессии, по которым хотите получать сигналы.",
+  pairsTitle: "Валютные пары",
+  pairsHint: "Отключайте шумные пары и добавляйте важные в watchlist.",
+  watch: "В watchlist",
+  unwatch: "Убрать",
+  enabled: "Включено",
+  disabled: "Выключено",
+  pushHistory: "История уведомлений",
+  pushHistoryEmpty: "Push-уведомления появятся здесь после отправки.",
+});
+Object.assign(translations.en.settings, {
+  sessions: "Sessions",
+  sessionsHint: "Keep only the sessions you want to receive signals from.",
+  pairsTitle: "Pairs",
+  pairsHint: "Disable noisy pairs and add important ones to the watchlist.",
+  watch: "Watchlist",
+  unwatch: "Remove",
+  enabled: "Enabled",
+  disabled: "Disabled",
+  pushHistory: "Push history",
+  pushHistoryEmpty: "Push notifications will appear here after delivery.",
+});
+Object.assign(translations.ru.misc, {
+  pairSettingsUpdated: "Настройки пар обновлены.",
+  sessionsUpdated: "Фильтр сессий обновлён.",
+  watchlistUpdated: "Watchlist обновлён.",
+});
+Object.assign(translations.en.misc, {
+  pairSettingsUpdated: "Pair settings updated.",
+  sessionsUpdated: "Session filter updated.",
+  watchlistUpdated: "Watchlist updated.",
+});
+
+translations.uk = JSON.parse(JSON.stringify(translations.en));
+Object.assign(translations.uk, {
+  appName: "Trade Ai",
+  brandLine: "AI trading product",
+});
+Object.assign(translations.uk.auth, {
+  title: "Вхід у Trade Ai",
+  subtitle: "Вхід через email, Google або Apple / iCloud.",
+  login: "Вхід",
+  register: "Реєстрація",
+  submitLogin: "Увійти",
+  submitRegister: "Створити акаунт",
+  name: "Ім'я",
+  password: "Пароль",
+  invalid: "Перевірте email і пароль.",
+  registerOk: "Акаунт створено.",
+  loginOk: "Вхід виконано.",
+});
+Object.assign(translations.uk.nav, {
+  home: "Головна",
+  market: "Ринок",
+  settings: "Налаштування",
+});
+Object.assign(translations.uk.home, {
+  title: "Сигнали",
+  bestSetup: "Найкращий сетап",
+  noSignals: "Сильних сигналів зараз немає",
+  noSignalsCopy: "AI фільтрує шум і чекає на підтвердження.",
+  limit: "Ліміт",
+  mood: "Настрій ринку",
+  viewMarket: "Переглянути ринок",
+  plusCopy: "До 10 сигналів на годину, вибір пар і пріоритетні сповіщення.",
+  notificationsTitle: "Увімкніть сповіщення про сигнали",
+  notificationsCopy: "Відкрийте налаштування й дозвольте сповіщення, щоб сильні LONG і SHORT сигнали приходили вчасно.",
+  notificationsButton: "Відкрити сповіщення",
+  sessions: "Торгові сесії",
+  watchlist: "Watchlist",
+  noTradeTitle: "No trade zone",
+  noTradeCopy: "AI зараз уникає входів по цих парах і показує причину.",
+  historyTitle: "Історія сигналів",
+  historyEmpty: "Нові сигнали з'являться тут, коли пройдуть фільтри.",
+  statsWinRate: "Win rate",
+  statsOpen: "Відкрито",
+});
+Object.assign(translations.uk.market, {
+  title: "Ринок у реальному часі",
+  filtered: "Обрана пара",
+  clearFilter: "Показати всі пари",
+  watchPair: "Відкрити пару",
+  mood: "Режим",
+  trend: "Тренд",
+  volatility: "Волатильність",
+  status: "Статус",
+  price: "Ціна",
+  ready: "Сигнал готовий",
+  forming: "Формується",
+  waiting: "Очікування",
+  details: "Деталі пари",
+  session: "Сесія",
+  structure: "Структура",
+  support: "Підтримка",
+  resistance: "Опір",
+  volume: "Обсяг",
+  change: "Зміна",
+  summary: "AI Summary",
+  noTrade: "No trade zone",
+  noTradeReady: "Причина блокування входу",
+  selectHint: "Оберіть пару або відкрийте її із сигналу.",
+});
+Object.assign(translations.uk.settings, {
+  title: "Налаштування",
+  account: "Акаунт",
+  language: "Мова",
+  theme: "Тема",
+  notifications: "Сповіщення",
+  sounds: "Звуки",
+  subscription: "Підписка",
+  signalLimit: "Ліміт сигналів",
+  dark: "Темна",
+  light: "Світла",
+  on: "Увімкнено",
+  off: "Вимкнено",
+  onboarding: "Ознайомлення",
+  showIntro: "Показати знову",
+  logout: "Вийти",
+  promoTitle: "Промокод PLUS",
+  promoPlaceholder: "Введіть промокод",
+  promoButton: "Активувати PLUS",
+  promoHint: "Щоб увімкнути PLUS назавжди безкоштовно, введіть промокод нижче.",
+  promoForever: "PLUS активовано назавжди.",
+  sessions: "Сесії",
+  sessionsHint: "Залиште лише ті сесії, з яких хочете отримувати сигнали.",
+  pairsTitle: "Валютні пари",
+  pairsHint: "Вимикайте шумні пари й додавайте важливі у watchlist.",
+  watch: "У watchlist",
+  unwatch: "Прибрати",
+  enabled: "Увімкнено",
+  disabled: "Вимкнено",
+  pushHistory: "Історія сповіщень",
+  pushHistoryEmpty: "Push-сповіщення з'являться тут після відправлення.",
+});
+Object.assign(translations.uk.actions, {
+  next: "Далі",
+  back: "Назад",
+  skip: "Пропустити",
+  start: "Почати",
+  enable: "Увімкнути",
+  disable: "Вимкнути",
+});
+Object.assign(translations.uk.misc, {
+  risk: "Trade Ai не надає фінансових порад. Торгівля пов'язана з ризиком.",
+  languageUpdated: "Мову оновлено.",
+  themeUpdated: "Тему оновлено.",
+  notificationsOn: "Сповіщення увімкнені.",
+  notificationsOff: "Сповіщення вимкнені.",
+  soundsOn: "Звук увімкнено.",
+  soundsOff: "Звук вимкнено.",
+  promoActivated: "Промокод прийнято. PLUS активовано назавжди.",
+  promoInvalid: "Невірний промокод. PLUS не активовано.",
+  logout: "Ви вийшли з акаунта.",
+  pairOpened: "Ринок по обраній парі відкрито.",
+  signalLimitUpdated: "Ліміт сигналів оновлено.",
+  apiError: "Помилка сервера. Спробуйте пізніше.",
+  sessionRequired: "Сесію завершено. Увійдіть знову.",
+  oauthSuccess: "Вхід виконано.",
+  pushLinked: "Цей пристрій підключено до web push.",
+  pushUnsupported: "Web push поки не підтримується на цьому пристрої.",
+  pushPermissionBlocked: "Доступ до сповіщень заблоковано. Дозвольте сповіщення для Trade Ai у налаштуваннях iPhone або Safari.",
+  pushUnavailable: "Web push поки недоступний. Завершіть деплой і повторіть спробу.",
+  pairSettingsUpdated: "Налаштування пар оновлено.",
+  sessionsUpdated: "Фільтр сесій оновлено.",
+  watchlistUpdated: "Watchlist оновлено.",
+});
+Object.assign(translations.ru.settings, {
+  profileTitle: "Профиль",
+  changeAvatar: "Сменить аватар",
+  clearAvatar: "Убрать",
+  languageHint: "Выберите язык интерфейса. Для новых языков используется безопасный fallback.",
+  notificationsHint: "Push уже работают, а внутренние уведомления остаются сверху и перекрывают друг друга.",
+  tiersTitle: "Планы доступа",
+  buyPlus: "Купить PLUS",
+  plusPerk: "До 10 сильных сигналов в час, фильтр пар и приоритетные уведомления.",
+  proLabel: "PRO AUTO",
+  proPerk: "Автовход в позицию, локальный риск-план и быстрый доступ к бирже.",
+  eliteLabel: "ELITE",
+  elitePerk: "Персональные фильтры, расширенная аналитика и будущие AI-автостратегии.",
+  buySoon: "Скоро через App Store / Google Play",
+  supportTitle: "Поддержка",
+  supportHint: "Здесь позже появится быстрый переход к вашему Telegram-боту.",
+  supportButton: "Скоро Telegram бот",
+  exchangeTitle: "Биржа и автоторговля",
+  exchangeHint: "Подключение биржи готовим так, чтобы ключи никогда не уходили на наш сервер.",
+  exchangeSecurity: "API-ключи будут жить только на вашем устройстве. Сервер их хранить не будет.",
+  connectExchange: "Скоро подключение биржи",
+  autoEntry: "Автовход в позицию",
+  autoEntryHint: "Функция будет доступна только для подписок PLUS и выше.",
+});
+Object.assign(translations.en.settings, {
+  profileTitle: "Profile",
+  changeAvatar: "Change avatar",
+  clearAvatar: "Clear",
+  languageHint: "Choose the app language. New languages use a safe fallback where needed.",
+  notificationsHint: "Push is live, and in-app notifications stay pinned to the top stack.",
+  tiersTitle: "Access plans",
+  buyPlus: "Buy PLUS",
+  plusPerk: "Up to 10 strong signals per hour, pair filtering, and priority alerts.",
+  proLabel: "PRO AUTO",
+  proPerk: "Auto-entry, local risk planner, and faster exchange workflow.",
+  eliteLabel: "ELITE",
+  elitePerk: "Personal filters, deeper analytics, and future AI automation.",
+  buySoon: "Coming soon via App Store / Google Play",
+  supportTitle: "Support",
+  supportHint: "Your Telegram bot shortcut will appear here later.",
+  supportButton: "Telegram bot soon",
+  exchangeTitle: "Exchange and automation",
+  exchangeHint: "Exchange linking is being prepared so keys never leave your device.",
+  exchangeSecurity: "API keys will stay on your device only. They will not be stored on our server.",
+  connectExchange: "Exchange connect soon",
+  autoEntry: "Auto-entry",
+  autoEntryHint: "This feature will be available only on PLUS and higher plans.",
+});
+Object.assign(translations.uk.settings, {
+  profileTitle: "Профіль",
+  changeAvatar: "Змінити аватар",
+  clearAvatar: "Прибрати",
+  languageHint: "Оберіть мову інтерфейсу. Для нових мов працює безпечний fallback.",
+  notificationsHint: "Push уже працюють, а внутрішні сповіщення залишаються зверху стеком.",
+  tiersTitle: "Плани доступу",
+  buyPlus: "Купити PLUS",
+  plusPerk: "До 10 сильних сигналів на годину, фільтр пар і пріоритетні сповіщення.",
+  proLabel: "PRO AUTO",
+  proPerk: "Автовхід у позицію, локальний risk planner і швидкий доступ до біржі.",
+  eliteLabel: "ELITE",
+  elitePerk: "Персональні фільтри, глибша аналітика й майбутня AI-автоматизація.",
+  buySoon: "Скоро через App Store / Google Play",
+  supportTitle: "Підтримка",
+  supportHint: "Тут пізніше з'явиться швидкий перехід до вашого Telegram-бота.",
+  supportButton: "Скоро Telegram бот",
+  exchangeTitle: "Біржа й автоторгівля",
+  exchangeHint: "Підключення біржі готуємо так, щоб ключі ніколи не йшли на наш сервер.",
+  exchangeSecurity: "API-ключі житимуть лише на вашому пристрої. Сервер їх не зберігатиме.",
+  connectExchange: "Скоро підключення біржі",
+  autoEntry: "Автовхід у позицію",
+  autoEntryHint: "Функція буде доступна лише для підписок PLUS і вище.",
+});
+Object.assign(translations.ru.market, {
+  riskPlanner: "Риск-план",
+  capital: "Сумма входа",
+  riskPerTrade: "Риск на сделку",
+  positionSize: "Размер позиции",
+  expectedReward: "Потенциал",
+  autoStops: "Авто SL / TP",
+  autoEntryHint: "Расчёт идёт локально по текущему сигналу, ATR и структуре рынка.",
+});
+Object.assign(translations.en.market, {
+  riskPlanner: "Risk planner",
+  capital: "Entry amount",
+  riskPerTrade: "Risk per trade",
+  positionSize: "Position size",
+  expectedReward: "Potential",
+  autoStops: "Auto SL / TP",
+  autoEntryHint: "This plan is calculated locally from the current signal, ATR, and market structure.",
+});
+Object.assign(translations.uk.market, {
+  riskPlanner: "Risk planner",
+  capital: "Сума входу",
+  riskPerTrade: "Ризик на угоду",
+  positionSize: "Розмір позиції",
+  expectedReward: "Потенціал",
+  autoStops: "Авто SL / TP",
+  autoEntryHint: "План розраховується локально за поточним сигналом, ATR і структурою ринку.",
+});
+Object.assign(translations.ru.misc, {
+  avatarUpdated: "Аватар обновлён.",
+  avatarRemoved: "Аватар убран.",
+  buySoon: "Покупка подписки скоро будет подключена через App Store и Google Play.",
+  supportSoon: "Кнопка поддержки скоро будет вести в вашего Telegram-бота.",
+  exchangeSoon: "Подключение биржи и автоторговля скоро появятся.",
+  autoEntrySoon: "Автовход будет доступен только для PLUS и старших планов.",
+});
+Object.assign(translations.en.misc, {
+  avatarUpdated: "Avatar updated.",
+  avatarRemoved: "Avatar removed.",
+  buySoon: "Subscription purchase will be connected through App Store and Google Play soon.",
+  supportSoon: "Support will point to your Telegram bot soon.",
+  exchangeSoon: "Exchange connection and auto-trading are coming soon.",
+  autoEntrySoon: "Auto-entry will be available only on PLUS and higher plans.",
+});
+Object.assign(translations.uk.misc, {
+  avatarUpdated: "Аватар оновлено.",
+  avatarRemoved: "Аватар прибрано.",
+  buySoon: "Покупку підписки скоро підключимо через App Store і Google Play.",
+  supportSoon: "Підтримка скоро вестиме до вашого Telegram-бота.",
+  exchangeSoon: "Підключення біржі й автоторгівля скоро з'являться.",
+  autoEntrySoon: "Автовхід буде доступний лише для PLUS і старших планів.",
+});
+
+const TRANSLATION_FALLBACK = "en";
+const LANGUAGE_OPTIONS = [
+  { code: "ru", label: "Русский" },
+  { code: "uk", label: "Українська" },
+  { code: "en", label: "English" },
+  { code: "es", label: "Español" },
+  { code: "pt", label: "Português" },
+  { code: "de", label: "Deutsch" },
+  { code: "fr", label: "Français" },
+  { code: "it", label: "Italiano" },
+  { code: "tr", label: "Türkçe" },
+  { code: "pl", label: "Polski" },
+  { code: "ro", label: "Română" },
+  { code: "cs", label: "Čeština" },
+  { code: "nl", label: "Nederlands" },
+  { code: "sv", label: "Svenska" },
+  { code: "ar", label: "العربية" },
+  { code: "hi", label: "हिन्दी" },
+  { code: "zh", label: "中文" },
+  { code: "ja", label: "日本語" },
+  { code: "ko", label: "한국어" },
+  { code: "id", label: "Bahasa Indonesia" },
+];
+
+const SESSION_LABELS = {
+  ru: {
+    asia: "Азия",
+    london: "Лондон",
+    newyork: "Нью-Йорк",
+  },
+  uk: {
+    asia: "Азія",
+    london: "Лондон",
+    newyork: "Нью-Йорк",
+  },
+  en: {
+    asia: "Asia",
+    london: "London",
+    newyork: "New York",
+  },
+};
+
+const HISTORY_STATUS_LABELS = {
+  ru: {
+    open: "Открыт",
+    win: "Плюс",
+    loss: "Минус",
+    expired: "Истёк",
+  },
+  uk: {
+    open: "Відкрито",
+    win: "Плюс",
+    loss: "Мінус",
+    expired: "Завершено",
+  },
+  en: {
+    open: "Open",
+    win: "Win",
+    loss: "Loss",
+    expired: "Expired",
+  },
+};
 
 const fallbackSignals = [
   {
@@ -430,10 +833,15 @@ const state = {
   liveSignals: [],
   liveMarketPairs: [],
   liveMeta: null,
+  liveAnalytics: {},
+  signalHistory: [],
+  pushHistory: [],
+  noTradeZones: [],
   lastSync: 0,
   lastSignalIds: new Set(),
   cryptoInvoice: null,
   paymentSheetOpen: false,
+  tradeCapital: Number(localStorage.getItem(STORAGE_KEYS.tradeCapital) || 250),
 };
 
 const appRoot = document.getElementById("appRoot");
@@ -488,8 +896,62 @@ function renderNotificationPrompt() {
   `;
 }
 
+function resolveLanguageKey(language = state.language) {
+  const key = String(language || "").trim().toLowerCase();
+  return translations[key] ? key : TRANSLATION_FALLBACK;
+}
+
+function getUiLocale(language = state.language) {
+  const key = resolveLanguageKey(language);
+  const locales = {
+    ru: "ru-RU",
+    uk: "uk-UA",
+    en: "en-GB",
+    es: "es-ES",
+    pt: "pt-PT",
+    de: "de-DE",
+    fr: "fr-FR",
+    it: "it-IT",
+    tr: "tr-TR",
+    pl: "pl-PL",
+    ro: "ro-RO",
+    cs: "cs-CZ",
+    nl: "nl-NL",
+    sv: "sv-SE",
+    ar: "ar-SA",
+    hi: "hi-IN",
+    zh: "zh-CN",
+    ja: "ja-JP",
+    ko: "ko-KR",
+    id: "id-ID",
+  };
+  return locales[key] || "en-GB";
+}
+
+function getLanguageLabel(code) {
+  return LANGUAGE_OPTIONS.find((entry) => entry.code === code)?.label || code.toUpperCase();
+}
+
+function localizedText(value) {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (!value || typeof value !== "object") {
+    return "";
+  }
+  const language = resolveLanguageKey();
+  return value[language] || value[TRANSLATION_FALLBACK] || value.en || Object.values(value).find((entry) => typeof entry === "string") || "";
+}
+
 function t(path) {
-  return path.split(".").reduce((value, key) => value?.[key], translations[state.language]);
+  const keys = path.split(".");
+  for (const language of [resolveLanguageKey(), TRANSLATION_FALLBACK]) {
+    const result = keys.reduce((value, key) => value?.[key], translations[language]);
+    if (result !== undefined) {
+      return result;
+    }
+  }
+  return path;
 }
 
 function getApiUrl(path) {
@@ -516,16 +978,29 @@ function getSignalWordRu(value) {
   return "сигналов";
 }
 
+function getSignalWordUk(value) {
+  const n = Math.abs(value) % 100;
+  const n1 = n % 10;
+  if (n > 10 && n < 20) return "сигналів";
+  if (n1 > 1 && n1 < 5) return "сигнали";
+  if (n1 === 1) return "сигнал";
+  return "сигналів";
+}
+
 function formatSignalsPerHour(value) {
-  if (state.language === "ru") {
+  const language = resolveLanguageKey();
+  if (language === "ru") {
     return `${value} ${getSignalWordRu(value)} в час`;
+  }
+  if (language === "uk") {
+    return `${value} ${getSignalWordUk(value)} на годину`;
   }
   return `${value} signals/hour`;
 }
 
 function applyDocumentState() {
   document.body.dataset.theme = state.theme;
-  document.documentElement.lang = state.language;
+  document.documentElement.lang = resolveLanguageKey();
   const themeMeta = document.querySelector('meta[name="theme-color"]');
   if (themeMeta) {
     themeMeta.setAttribute("content", state.theme === "dark" ? "#090909" : "#f2f2f0");
@@ -550,22 +1025,23 @@ function playUiSound(kind = "tap") {
   const now = ctx.currentTime;
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
-  let duration = 0.08;
+  osc.type = kind === "signal" ? "triangle" : "sine";
+  let duration = 0.09;
   osc.connect(gain);
   gain.connect(ctx.destination);
 
   if (kind === "signal") {
-    osc.frequency.setValueAtTime(860, now);
-    osc.frequency.exponentialRampToValueAtTime(620, now + 0.18);
+    osc.frequency.setValueAtTime(690, now);
+    osc.frequency.exponentialRampToValueAtTime(520, now + 0.24);
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.08, now + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
-    duration = 0.2;
+    gain.gain.exponentialRampToValueAtTime(0.055, now + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
+    duration = 0.24;
   } else {
-    osc.frequency.setValueAtTime(540, now);
+    osc.frequency.setValueAtTime(420, now);
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.03, now + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+    gain.gain.exponentialRampToValueAtTime(0.02, now + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
   }
 
   try {
@@ -596,6 +1072,10 @@ function clearSessionState() {
   state.liveSignals = [];
   state.liveMarketPairs = [];
   state.liveMeta = null;
+  state.liveAnalytics = {};
+  state.signalHistory = [];
+  state.pushHistory = [];
+  state.noTradeZones = [];
   state.dataLoaded = false;
   state.lastSignalIds = new Set();
   state.cryptoInvoice = null;
@@ -755,6 +1235,169 @@ function getMarketFeed() {
   return source.filter((pair) => pair.pair === state.selectedPair);
 }
 
+function getAnalyticsFeed() {
+  return state.dataLoaded ? state.liveAnalytics : {};
+}
+
+function getWatchlist() {
+  return Array.isArray(state.user?.settings?.watchlist) ? state.user.settings.watchlist : [];
+}
+
+function getEnabledPairs() {
+  return Array.isArray(state.user?.settings?.enabledPairs) ? state.user.settings.enabledPairs : [];
+}
+
+function getPreferredSessions() {
+  return Array.isArray(state.user?.settings?.preferredSessions) ? state.user.settings.preferredSessions : ["asia", "london", "newyork"];
+}
+
+function getPairKey(pair) {
+  return String(pair || "").replace(/[^a-z0-9]/giu, "").toLowerCase();
+}
+
+function getPairAnalytics(pairLabel) {
+  return getAnalyticsFeed()[getPairKey(pairLabel)] || null;
+}
+
+function getSessionLabel(session) {
+  return SESSION_LABELS[resolveLanguageKey()]?.[session] || SESSION_LABELS.en?.[session] || session || "--";
+}
+
+function getHistoryStatusLabel(status) {
+  return HISTORY_STATUS_LABELS[resolveLanguageKey()]?.[status] || HISTORY_STATUS_LABELS.en?.[status] || status;
+}
+
+function formatTimestamp(value) {
+  if (!value) return "--";
+  const date = new Date(value);
+  return date.toLocaleString(getUiLocale(), {
+    hour: "2-digit",
+    minute: "2-digit",
+    day: "2-digit",
+    month: "short",
+  });
+}
+
+function formatNumber(value, digits = 2) {
+  if (!Number.isFinite(Number(value))) return "--";
+  return Number(value).toLocaleString("en-US", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
+
+function getSignalHistoryStats() {
+  const history = Array.isArray(state.signalHistory) ? state.signalHistory : [];
+  const wins = history.filter((entry) => entry.status === "win").length;
+  const losses = history.filter((entry) => entry.status === "loss").length;
+  const open = history.filter((entry) => entry.status === "open").length;
+  const totalClosed = wins + losses;
+  return {
+    wins,
+    losses,
+    open,
+    winRate: totalClosed ? Math.round((wins / totalClosed) * 100) : 0,
+  };
+}
+
+function getSelectedMarketEntry() {
+  const market = state.dataLoaded ? state.liveMarketPairs : fallbackMarket;
+  if (state.selectedPair) {
+    return market.find((entry) => entry.pair === state.selectedPair) || null;
+  }
+
+  const watchPair = getWatchlist().find((pair) => market.some((entry) => entry.pair === pair));
+  if (watchPair) {
+    return market.find((entry) => entry.pair === watchPair) || null;
+  }
+
+  return market[0] || null;
+}
+
+function getCurrentSignalForPair(pairLabel) {
+  return getSignalFeed().find((signal) => signal.pair === pairLabel) || null;
+}
+
+function getTradeCapital() {
+  const capital = Number(state.tradeCapital || 0);
+  return Number.isFinite(capital) && capital > 0 ? capital : 250;
+}
+
+function getAvatarMarkup() {
+  const avatar = state.user?.settings?.avatarDataUrl;
+  if (typeof avatar === "string" && avatar.startsWith("data:image/")) {
+    return `<img class="avatar-image" src="${avatar}" alt="${state.user?.name || t("appName")}" />`;
+  }
+  return `<span class="avatar-fallback">${(state.user?.name || "T").trim().charAt(0).toUpperCase()}</span>`;
+}
+
+function buildRiskPlan(entry, analytics, signal, pairLabel) {
+  const capital = getTradeCapital();
+  const entryPrice = Number(String(entry).replace(/,/g, ""));
+  if (!Number.isFinite(entryPrice) || entryPrice <= 0) {
+    return null;
+  }
+
+  let stop = Number(String(signal?.stopLoss || "").replace(/,/g, ""));
+  let target = Number(String(signal?.takeProfit || "").replace(/,/g, ""));
+  const direction = signal?.side || (Number(analytics?.ema50) >= Number(analytics?.ema200) ? "long" : "short");
+  const atrPercent = Math.max(Number(analytics?.atrPercent || 0), pairLabel?.includes("USDT") ? 1.1 : 0.35);
+
+  if (!Number.isFinite(stop) || stop <= 0) {
+    const distance = entryPrice * (atrPercent / 100) * (pairLabel?.includes("USDT") ? 0.7 : 0.9);
+    stop = direction === "long" ? entryPrice - distance : entryPrice + distance;
+  }
+
+  if (!Number.isFinite(target) || target <= 0) {
+    const riskDistance = Math.abs(entryPrice - stop) || entryPrice * 0.005;
+    target = direction === "long" ? entryPrice + riskDistance * 1.9 : entryPrice - riskDistance * 1.9;
+  }
+
+  const riskAmount = capital * 0.01;
+  const stopDistance = Math.abs(entryPrice - stop);
+  if (!Number.isFinite(stopDistance) || stopDistance <= 0) {
+    return null;
+  }
+
+  const positionSize = riskAmount / stopDistance;
+  const rewardDistance = Math.abs(target - entryPrice);
+  const rewardAmount = rewardDistance * positionSize;
+
+  return {
+    capital,
+    riskAmount,
+    stop,
+    target,
+    positionSize,
+    rewardAmount,
+  };
+}
+
+function renderSparkline(points = []) {
+  if (!Array.isArray(points) || points.length < 2) {
+    return "";
+  }
+
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const range = max - min || 1;
+  const width = 240;
+  const height = 72;
+  const coordinates = points.map((point, index) => {
+    const x = (index / (points.length - 1)) * width;
+    const y = height - ((point - min) / range) * height;
+    return `${x.toFixed(2)},${y.toFixed(2)}`;
+  }).join(" ");
+
+  return `
+    <div class="sparkline-box">
+      <svg viewBox="0 0 ${width} ${height}" class="sparkline" aria-hidden="true">
+        <polyline points="${coordinates}" />
+      </svg>
+    </div>
+  `;
+}
+
 function getSignalLimit() {
   if (state.user?.signalLimit) return Number(state.user.signalLimit);
   const fallback = Number(localStorage.getItem(STORAGE_KEYS.signalLimit) || 2);
@@ -781,8 +1424,12 @@ function getSignalLevel(signal) {
 }
 
 function getSignalNotificationTitle(signal) {
-  if (state.language === "ru") {
+  const language = resolveLanguageKey();
+  if (language === "ru") {
     return `Внимание: новый сигнал - ${signal.pair}`;
+  }
+  if (language === "uk") {
+    return `Увага: новий сигнал - ${signal.pair}`;
   }
 
   return `Attention: new signal - ${signal.pair}`;
@@ -791,8 +1438,12 @@ function getSignalNotificationTitle(signal) {
 function getSignalNotificationBody(signal) {
   const level = getSignalLevel(signal);
   const direction = signal.side === "long" ? "LONG" : "SHORT";
+  const language = resolveLanguageKey();
 
-  if (state.language === "ru") {
+  if (language === "ru") {
+    return `${signal.pair} - ${direction}\nСила: ${level.label}\n${t("signal.entry")}: ${signal.entry} | TP: ${signal.takeProfit} | SL: ${signal.stopLoss}`;
+  }
+  if (language === "uk") {
     return `${signal.pair} - ${direction}\nСила: ${level.label}\n${t("signal.entry")}: ${signal.entry} | TP: ${signal.takeProfit} | SL: ${signal.stopLoss}`;
   }
 
@@ -887,7 +1538,7 @@ async function refreshMarketData(force = false) {
   if (!force && liveRefreshPromise) return liveRefreshPromise;
 
   const params = new URLSearchParams();
-  if (state.selectedPair) params.set("pair", state.selectedPair);
+  if (state.activeTab === "market" && state.selectedPair) params.set("pair", state.selectedPair);
 
   liveRefreshPromise = (async () => {
     try {
@@ -899,6 +1550,10 @@ async function refreshMarketData(force = false) {
       state.liveSignals = nextSignals;
       state.liveMarketPairs = Array.isArray(payload.market) ? payload.market : [];
       state.liveMeta = payload.meta || null;
+      state.liveAnalytics = payload.analytics || {};
+      state.signalHistory = Array.isArray(payload.signalHistory) ? payload.signalHistory : [];
+      state.pushHistory = Array.isArray(payload.pushHistory) ? payload.pushHistory : [];
+      state.noTradeZones = Array.isArray(payload.noTradeZones) ? payload.noTradeZones : [];
       state.lastSync = Date.now();
       state.dataLoaded = true;
       if (payload.user) {
@@ -1020,6 +1675,113 @@ async function setTheme(theme) {
 
 async function setSignalLimit(limit) {
   await savePreferences({ signalLimit: Number(limit) }, "misc.signalLimitUpdated");
+}
+
+async function updateAvatar(file) {
+  if (!(file instanceof File)) {
+    return;
+  }
+
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Avatar read failed."));
+    reader.readAsDataURL(file);
+  });
+
+  const image = await new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Avatar load failed."));
+    img.src = dataUrl;
+  });
+
+  const size = 320;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Canvas is unavailable.");
+  }
+
+  const sourceSize = Math.min(image.width, image.height);
+  const sourceX = (image.width - sourceSize) / 2;
+  const sourceY = (image.height - sourceSize) / 2;
+  context.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, size, size);
+  const nextAvatar = canvas.toDataURL("image/jpeg", 0.9);
+  await savePreferences({ avatarDataUrl: nextAvatar }, "misc.avatarUpdated");
+}
+
+async function clearAvatar() {
+  await savePreferences({ avatarDataUrl: "" }, "misc.avatarRemoved");
+}
+
+async function togglePreferredSession(session) {
+  const current = new Set(getPreferredSessions());
+  if (current.has(session) && current.size === 1) {
+    return;
+  }
+
+  if (current.has(session)) {
+    current.delete(session);
+  } else {
+    current.add(session);
+  }
+
+  await savePreferences({ preferredSessions: [...current] }, "misc.sessionsUpdated");
+  void refreshMarketData(true);
+}
+
+async function toggleEnabledPair(pair) {
+  const current = new Set(getEnabledPairs());
+  if (current.has(pair) && current.size === 1) {
+    return;
+  }
+
+  if (current.has(pair)) {
+    current.delete(pair);
+  } else {
+    current.add(pair);
+  }
+
+  await savePreferences({ enabledPairs: [...current] }, "misc.pairSettingsUpdated");
+  void refreshMarketData(true);
+}
+
+async function toggleWatchlistPair(pair) {
+  const current = new Set(getWatchlist());
+  if (current.has(pair)) {
+    current.delete(pair);
+  } else if (current.size < 8) {
+    current.add(pair);
+  }
+
+  await savePreferences({ watchlist: [...current] }, "misc.watchlistUpdated");
+  void refreshMarketData(true);
+}
+
+function saveTradeCapital(value) {
+  const nextValue = Math.max(10, Number(value || 0));
+  state.tradeCapital = Number.isFinite(nextValue) ? nextValue : 250;
+  localStorage.setItem(STORAGE_KEYS.tradeCapital, String(state.tradeCapital));
+  render();
+}
+
+function showSubscriptionPlaceholder() {
+  showToast(t("appName"), t("misc.buySoon"), "info");
+}
+
+function showSupportPlaceholder() {
+  showToast(t("appName"), t("misc.supportSoon"), "info");
+}
+
+function showExchangePlaceholder() {
+  showToast(t("appName"), t("misc.exchangeSoon"), "info");
+}
+
+function showAutoEntryPlaceholder() {
+  showToast(t("appName"), t("misc.autoEntrySoon"), "info");
 }
 
 async function activatePromoCode(form) {
@@ -1184,6 +1946,7 @@ function handleIntroAction(action) {
   }
   if (action === "finish-intro" || action === "skip-intro") {
     state.onboardingSeen = true;
+    state.authMode = "register";
     localStorage.setItem(STORAGE_KEYS.introSeen, "true");
     playUiSound("tap");
     render();
@@ -1210,14 +1973,33 @@ function renderLoading() {
 function renderIntro() {
   const slides = t("intro");
   const slide = slides[state.onboardingStep];
+  const featureLine = state.onboardingStep === 0
+    ? "AI + EMA + RSI + MACD"
+    : state.onboardingStep === 1
+      ? "Entry • TP • SL • Confidence"
+      : state.onboardingStep === 2
+        ? "FREE • PLUS • PRO AUTO"
+        : "Risk control • no noise • no promises";
   return `
     <div class="intro-screen">
       <article class="intro-card">
-        <div class="intro-index">${state.onboardingStep + 1}</div>
-        <div>
-          <p class="eyebrow">${t("appName")}</p>
+        <div class="intro-hero">
+          <div class="logo-mark intro-logo">${getLogoMarkup()}</div>
+          <div class="intro-hero-copy">
+            <p class="eyebrow">${t("brandLine")}</p>
+            <div class="intro-pill-row">
+              <span class="small-chip">${state.onboardingStep + 1} / ${slides.length}</span>
+              <span class="small-chip">LONG / SHORT</span>
+            </div>
+          </div>
+        </div>
+        <div class="intro-copy-block">
           <h1 class="intro-title">${slide.title}</h1>
           <p class="intro-copy">${slide.body}</p>
+        </div>
+        <div class="intro-feature-card">
+          <span class="plan-badge">${t("appName")}</span>
+          <p class="helper-text">${featureLine}</p>
         </div>
         <div class="intro-dots">
           ${slides.map((_, index) => `<div class="intro-dot ${index === state.onboardingStep ? "active" : ""}"></div>`).join("")}
@@ -1241,14 +2023,19 @@ function renderAuth() {
   return `
     <div class="auth-screen">
       <article class="auth-card">
-        <div class="brand">
-          <div class="logo-mark">${getLogoMarkup()}</div>
-          <div class="brand-copy">
-            <p class="eyebrow">${t("appName")}</p>
+        <div class="auth-hero">
+          <div class="logo-mark auth-logo">${getLogoMarkup()}</div>
+          <div class="brand-copy auth-brand-copy">
+            <p class="eyebrow">${t("brandLine")}</p>
             <h1 class="auth-title">${t("auth.title")}</h1>
+            <p class="auth-copy">${t("auth.subtitle")}</p>
           </div>
         </div>
-        <p class="auth-copy">${t("auth.subtitle")}</p>
+        <div class="auth-chip-row">
+          <span class="small-chip">LONG / SHORT</span>
+          <span class="small-chip">AI Confidence</span>
+          <span class="small-chip">No noise</span>
+        </div>
         <div class="auth-mode">
           <button class="auth-tab ${!isRegister ? "active" : ""}" data-action="set-auth-mode" data-mode="login" type="button">${t("auth.login")}</button>
           <button class="auth-tab ${isRegister ? "active" : ""}" data-action="set-auth-mode" data-mode="register" type="button">${t("auth.register")}</button>
@@ -1257,7 +2044,7 @@ function renderAuth() {
           <button class="ghost-button" data-action="oauth-google" type="button">${t("auth.google")}</button>
           <button class="ghost-button" data-action="oauth-apple" type="button">${t("auth.apple")}</button>
         </div>
-        <div class="auth-divider"><span>${t("auth.or")}</span></div>
+        <div class="auth-divider"><span class="auth-divider-pill">${t("auth.or")}</span></div>
         <form id="authForm">
           ${isRegister ? `<label class="field"><span>${t("auth.name")}</span><input name="name" type="text" required /></label>` : ""}
           <label class="field"><span>${t("auth.email")}</span><input name="email" type="email" required /></label>
@@ -1271,20 +2058,324 @@ function renderAuth() {
 
 function renderTopbar() {
   const plan = getPlanInfo();
+  const highlightedPair = state.selectedPair || getWatchlist()[0] || "";
+  const highlightedEntry = highlightedPair ? getMarketFeed().find((entry) => entry.pair === highlightedPair) || null : null;
   return `
     <header class="topbar">
-      <div class="brand">
-        <div class="logo-mark-mini">${getLogoMarkup()}</div>
-        <div class="brand-copy">
-          <p class="eyebrow">${t("brandLine")}</p>
-          <h1>${t("appName")}</h1>
+      <div class="topbar-main">
+        <div class="brand">
+          <div class="logo-mark-mini">${getLogoMarkup()}</div>
+          <div class="brand-copy">
+            <p class="eyebrow">${t("brandLine")}</p>
+            <h1>${t("appName")}</h1>
+          </div>
+        </div>
+        <div class="topbar-strip">
+          <span class="selected-pair-chip">
+            ${highlightedPair ? `${t("market.filtered")}: <strong>${highlightedPair}</strong>` : `<strong>${formatSignalsPerHour(plan.currentLimit)}</strong>`}
+          </span>
+          <span class="${highlightedEntry ? `status-pill ${highlightedEntry.status}` : "plan-badge"}">${highlightedEntry ? getStatusLabel(highlightedEntry.status) : plan.label}</span>
         </div>
       </div>
       <div class="topbar-side">
-        <span class="plan-badge">${plan.label}</span>
         <span class="small-chip">${formatSignalsPerHour(plan.currentLimit)}</span>
+        <div class="avatar-shell mini-avatar">${getAvatarMarkup()}</div>
       </div>
     </header>
+  `;
+}
+
+function renderSessionFilterCard() {
+  const preferredSessions = new Set(getPreferredSessions());
+  return `
+    <article class="settings-card compact-card">
+      <div class="settings-head">
+        <div>
+          <p class="eyebrow">${t("home.sessions")}</p>
+          <h3 class="settings-title">${t("home.sessions")}</h3>
+        </div>
+      </div>
+      <div class="chip-grid">
+        ${["asia", "london", "newyork"].map((session) => `
+          <button
+            class="filter-chip ${preferredSessions.has(session) ? "active" : ""}"
+            data-action="toggle-session-setting"
+            data-session="${session}"
+            type="button"
+          >${getSessionLabel(session)}</button>
+        `).join("")}
+      </div>
+    </article>
+  `;
+}
+
+function renderWatchlistCard() {
+  const watchlist = getWatchlist();
+  if (!watchlist.length) {
+    return "";
+  }
+
+  return `
+    <article class="settings-card compact-card">
+      <div class="settings-head">
+        <div>
+          <p class="eyebrow">${t("home.watchlist")}</p>
+          <h3 class="settings-title">${t("home.watchlist")}</h3>
+        </div>
+      </div>
+      <div class="chip-grid">
+        ${watchlist.map((pair) => `
+          <button class="filter-chip active" data-action="open-pair-market" data-pair="${pair}" type="button">${pair}</button>
+        `).join("")}
+      </div>
+    </article>
+  `;
+}
+
+function renderNoTradeZoneCard() {
+  if (!Array.isArray(state.noTradeZones) || !state.noTradeZones.length) {
+    return "";
+  }
+
+  return `
+    <article class="settings-card compact-card">
+      <div class="settings-head">
+        <div>
+          <p class="eyebrow">${t("home.noTradeTitle")}</p>
+          <h3 class="settings-title">${t("home.noTradeTitle")}</h3>
+        </div>
+      </div>
+      <p class="helper-text">${t("home.noTradeCopy")}</p>
+      <div class="activity-list">
+        ${state.noTradeZones.slice(0, 4).map((entry) => `
+          <article class="activity-item">
+            <div class="activity-head">
+              <strong>${entry.pair}</strong>
+              <span class="small-chip">${getSessionLabel(entry.session)}</span>
+            </div>
+            <p class="helper-text">${localizedText(entry.reason)}</p>
+          </article>
+        `).join("")}
+      </div>
+    </article>
+  `;
+}
+
+function renderSignalHistoryCard() {
+  const stats = getSignalHistoryStats();
+  const history = Array.isArray(state.signalHistory) ? state.signalHistory : [];
+
+  return `
+    <article class="settings-card compact-card">
+      <div class="settings-head">
+        <div>
+          <p class="eyebrow">${t("home.historyTitle")}</p>
+          <h3 class="settings-title">${t("home.historyTitle")}</h3>
+        </div>
+      </div>
+      <div class="hero-stats history-stats">
+        <div class="hero-stat">
+          <span class="meta-label">${t("home.statsWinRate")}</span>
+          <strong class="meta-value">${stats.winRate}%</strong>
+        </div>
+        <div class="hero-stat">
+          <span class="meta-label">Win / Loss</span>
+          <strong class="meta-value">${stats.wins} / ${stats.losses}</strong>
+        </div>
+        <div class="hero-stat">
+          <span class="meta-label">${t("home.statsOpen")}</span>
+          <strong class="meta-value">${stats.open}</strong>
+        </div>
+        <div class="hero-stat">
+          <span class="meta-label">Total</span>
+          <strong class="meta-value">${history.length}</strong>
+        </div>
+      </div>
+      ${
+        history.length
+          ? `
+            <div class="activity-list">
+              ${history.slice(0, 4).map((entry) => `
+                <article class="activity-item">
+                  <div class="activity-head">
+                    <div class="activity-topline">
+                      <span class="side-pill ${entry.side}">${t(`signal.${entry.side}`)}</span>
+                      <span class="status-pill status-${entry.status}">${getHistoryStatusLabel(entry.status)}</span>
+                    </div>
+                    <strong>${entry.pair}</strong>
+                  </div>
+                  <div class="activity-grid">
+                    <span>${t("signal.entry")}: ${formatNumber(entry.entry, 4)}</span>
+                    <span>${t("signal.confidence")}: ${entry.confidence}%</span>
+                    <span>${t("market.session")}: ${getSessionLabel(entry.session)}</span>
+                    <span>${formatTimestamp(entry.createdAt)}</span>
+                  </div>
+                </article>
+              `).join("")}
+            </div>
+          `
+          : `<p class="helper-text">${t("home.historyEmpty")}</p>`
+      }
+    </article>
+  `;
+}
+
+function renderMarketDetailCard() {
+  const selectedEntry = getSelectedMarketEntry();
+  if (!selectedEntry) {
+    return `
+      <article class="hero-card">
+        <div class="hero-head">
+          <div>
+            <p class="eyebrow">${t("market.details")}</p>
+            <h3 class="section-title">${t("market.selectHint")}</h3>
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  const analytics = getPairAnalytics(selectedEntry.pair);
+  const signal = getCurrentSignalForPair(selectedEntry.pair);
+  const riskPlan = buildRiskPlan(selectedEntry.price, analytics, signal, selectedEntry.pair);
+  const sparkline = renderSparkline(analytics?.sparkline || []);
+
+  return `
+    <article class="hero-card detail-card">
+      <div class="hero-head">
+        <div>
+          <p class="eyebrow">${t("market.details")}</p>
+          <h3 class="section-title">${selectedEntry.pair}</h3>
+        </div>
+        <span class="status-pill ${selectedEntry.status}">${getStatusLabel(selectedEntry.status)}</span>
+      </div>
+      ${sparkline}
+      <p class="helper-text">${localizedText(selectedEntry.summary) || localizedText(analytics?.summary)}</p>
+      <div class="market-grid">
+        <div class="market-meta-box"><span class="meta-label">${t("market.session")}</span><strong class="meta-value">${getSessionLabel(selectedEntry.session)}</strong></div>
+        <div class="market-meta-box"><span class="meta-label">${t("market.structure")}</span><strong class="meta-value">${localizedText(selectedEntry.marketStructure) || "--"}</strong></div>
+        <div class="market-meta-box"><span class="meta-label">EMA 50</span><strong class="meta-value">${formatNumber(analytics?.ema50, 4)}</strong></div>
+        <div class="market-meta-box"><span class="meta-label">EMA 200</span><strong class="meta-value">${formatNumber(analytics?.ema200, 4)}</strong></div>
+        <div class="market-meta-box"><span class="meta-label">RSI</span><strong class="meta-value">${formatNumber(analytics?.rsi14, 2)}</strong></div>
+        <div class="market-meta-box"><span class="meta-label">MACD</span><strong class="meta-value">${formatNumber(analytics?.macd?.histogram, 4)}</strong></div>
+        <div class="market-meta-box"><span class="meta-label">${t("market.support")}</span><strong class="meta-value">${formatNumber(analytics?.support, 4)}</strong></div>
+        <div class="market-meta-box"><span class="meta-label">${t("market.resistance")}</span><strong class="meta-value">${formatNumber(analytics?.resistance, 4)}</strong></div>
+        <div class="market-meta-box"><span class="meta-label">${t("market.volume")}</span><strong class="meta-value">${formatNumber(analytics?.volumeRatio, 2)}x</strong></div>
+        <div class="market-meta-box"><span class="meta-label">${t("market.change")}</span><strong class="meta-value">${formatNumber(selectedEntry.changePercent ?? analytics?.changePercent, 2)}%</strong></div>
+      </div>
+      ${
+        localizedText(selectedEntry.noTradeReason)
+          ? `
+            <div class="warning-card">
+              <strong>${t("market.noTradeReady")}</strong>
+              <p>${localizedText(selectedEntry.noTradeReason)}</p>
+            </div>
+          `
+          : ""
+      }
+      <article class="planner-card">
+        <div class="settings-head">
+          <div>
+            <p class="eyebrow">${t("market.riskPlanner")}</p>
+            <h3 class="settings-title">${signal ? `${t(`signal.${signal.side}`)} • ${selectedEntry.pair}` : selectedEntry.pair}</h3>
+          </div>
+          ${signal ? `<span class="small-chip">${signal.confidence}%</span>` : `<span class="small-chip">${t("market.autoStops")}</span>`}
+        </div>
+        <form id="riskPlannerForm" class="planner-form">
+          <label class="field planner-field">
+            <span>${t("market.capital")}</span>
+            <input name="capital" type="number" min="10" step="10" value="${getTradeCapital()}" />
+          </label>
+          <button class="ghost-button" type="submit">${t("market.riskPlanner")}</button>
+        </form>
+        ${
+          riskPlan
+            ? `
+              <div class="market-grid">
+                <div class="market-meta-box"><span class="meta-label">${t("market.riskPerTrade")}</span><strong class="meta-value">${formatNumber(riskPlan.riskAmount, 2)}</strong></div>
+                <div class="market-meta-box"><span class="meta-label">${t("market.positionSize")}</span><strong class="meta-value">${formatNumber(riskPlan.positionSize, 3)}</strong></div>
+                <div class="market-meta-box"><span class="meta-label">${t("market.autoStops")}</span><strong class="meta-value">SL ${formatNumber(riskPlan.stop, 4)} • TP ${formatNumber(riskPlan.target, 4)}</strong></div>
+                <div class="market-meta-box"><span class="meta-label">${t("market.expectedReward")}</span><strong class="meta-value">${formatNumber(riskPlan.rewardAmount, 2)}</strong></div>
+              </div>
+            `
+            : ""
+        }
+        <p class="helper-text">${t("market.autoEntryHint")}</p>
+        <div class="subscription-actions">
+          <button class="primary-button" data-action="show-auto-entry-info" type="button">${t("settings.autoEntry")}</button>
+          <button class="action-button" data-action="show-exchange-info" type="button">${t("settings.connectExchange")}</button>
+        </div>
+      </article>
+    </article>
+  `;
+}
+
+function renderPairSettingsCard() {
+  const enabledPairs = new Set(getEnabledPairs());
+  const watchlist = new Set(getWatchlist());
+  const market = [...(state.dataLoaded ? state.liveMarketPairs : fallbackMarket)]
+    .sort((left, right) => left.pair.localeCompare(right.pair));
+
+  return `
+    <article class="settings-card">
+      <div class="settings-head">
+        <div>
+          <p class="eyebrow">${t("settings.pairsTitle")}</p>
+          <h3 class="settings-title">${t("settings.pairsTitle")}</h3>
+        </div>
+      </div>
+      <p class="helper-text">${t("settings.pairsHint")}</p>
+      <div class="pair-settings-list">
+        ${market.map((pair) => `
+          <article class="pair-settings-item">
+            <div>
+              <strong>${pair.pair}</strong>
+              <p class="helper-text">${localizedText(pair.summary)}</p>
+            </div>
+            <div class="pair-settings-actions">
+              <button class="chip-button ${enabledPairs.has(pair.pair) ? "active" : ""}" data-action="toggle-pair-setting" data-pair="${pair.pair}" type="button">
+                ${enabledPairs.has(pair.pair) ? t("settings.enabled") : t("settings.disabled")}
+              </button>
+              <button class="chip-button ${watchlist.has(pair.pair) ? "active" : ""}" data-action="toggle-watchlist" data-pair="${pair.pair}" type="button">
+                ${watchlist.has(pair.pair) ? t("settings.unwatch") : t("settings.watch")}
+              </button>
+            </div>
+          </article>
+        `).join("")}
+      </div>
+    </article>
+  `;
+}
+
+function renderPushHistoryCard() {
+  const history = Array.isArray(state.pushHistory) ? state.pushHistory : [];
+
+  return `
+    <article class="settings-card">
+      <div class="settings-head">
+        <div>
+          <p class="eyebrow">${t("settings.pushHistory")}</p>
+          <h3 class="settings-title">${t("settings.pushHistory")}</h3>
+        </div>
+      </div>
+      ${
+        history.length
+          ? `
+            <div class="activity-list">
+              ${history.slice(0, 6).map((entry) => `
+                <article class="activity-item">
+                  <div class="activity-head">
+                    <strong>${entry.title}</strong>
+                    <span class="small-chip">${formatTimestamp(entry.sentAt)}</span>
+                  </div>
+                  <p class="helper-text">${entry.body}</p>
+                </article>
+              `).join("")}
+            </div>
+          `
+          : `<p class="helper-text">${t("settings.pushHistoryEmpty")}</p>`
+      }
+    </article>
   `;
 }
 
@@ -1328,7 +2419,10 @@ function renderHomeScreen() {
         </div>
       </article>
 
+      ${renderSessionFilterCard()}
       ${renderNotificationPrompt()}
+      ${renderWatchlistCard()}
+      ${renderNoTradeZoneCard()}
 
       ${
         visibleSignals.length
@@ -1349,7 +2443,7 @@ function renderHomeScreen() {
                         </div>
                         <span class="quota-pill">${signal.confidence}%</span>
                       </div>
-                      <p class="signal-reason">${signal.reason?.[state.language] || ""}</p>
+                      <p class="signal-reason">${localizedText(signal.reason)}</p>
                       <div class="signal-grid">
                         <div class="signal-meta"><span class="meta-label">${t("signal.entry")}</span><strong class="meta-value">${signal.entry}</strong></div>
                         <div class="signal-meta"><span class="meta-label">${t("signal.takeProfit")}</span><strong class="meta-value">${signal.takeProfit}</strong></div>
@@ -1373,6 +2467,7 @@ function renderHomeScreen() {
           `
       }
 
+      ${renderSignalHistoryCard()}
     </div>
   `;
 }
@@ -1394,12 +2489,14 @@ function renderMarketScreen() {
           </div>
           ${
             state.selectedPair
-              ? `<span class="small-chip">${t("market.filtered")}: ${state.selectedPair}</span>`
+              ? `<span class="selected-pair-chip">${t("market.filtered")}: <strong>${state.selectedPair}</strong></span>`
               : `<span class="small-chip">${market.length}</span>`
           }
         </div>
         ${state.selectedPair ? `<button class="action-button" data-action="clear-pair-filter" type="button">${t("market.clearFilter")}</button>` : ""}
       </article>
+
+      ${renderMarketDetailCard()}
 
       <div class="market-list">
         ${market
@@ -1414,8 +2511,8 @@ function renderMarketScreen() {
                   </div>
                 </div>
                 <div class="market-grid">
-                  <div class="market-meta-box"><span class="meta-label">${t("market.trend")}</span><strong class="meta-value">${pair.trend?.[state.language] || pair.trend}</strong></div>
-                  <div class="market-meta-box"><span class="meta-label">${t("market.volatility")}</span><strong class="meta-value">${pair.volatility?.[state.language] || pair.volatility}</strong></div>
+                  <div class="market-meta-box"><span class="meta-label">${t("market.trend")}</span><strong class="meta-value">${localizedText(pair.trend) || pair.trend}</strong></div>
+                  <div class="market-meta-box"><span class="meta-label">${t("market.volatility")}</span><strong class="meta-value">${localizedText(pair.volatility) || pair.volatility}</strong></div>
                   <div class="market-meta-box"><span class="meta-label">${t("market.status")}</span><strong class="meta-value">${getStatusLabel(pair.status)}</strong></div>
                   <div class="market-meta-box"><span class="meta-label">${t("market.price")}</span><strong class="meta-value">${pair.price}</strong></div>
                 </div>
@@ -1450,6 +2547,9 @@ function renderSignalLimitOptions() {
 
 function renderSettingsScreen() {
   const plan = getPlanInfo();
+  const preferredSessions = new Set(getPreferredSessions());
+  const activeLanguage = resolveLanguageKey();
+  const hasAvatar = Boolean(state.user?.settings?.avatarDataUrl);
 
   return `
     <div class="screen-stack">
@@ -1459,22 +2559,43 @@ function renderSettingsScreen() {
 
       <article class="account-card">
         <div class="account-head">
-          <div>
-            <p class="eyebrow">${t("settings.account")}</p>
-            <h3 class="account-name">${state.user?.name || "-"}</h3>
+          <div class="account-profile">
+            <div class="avatar-shell">${getAvatarMarkup()}</div>
+            <div>
+              <p class="eyebrow">${t("settings.profileTitle")}</p>
+              <h3 class="account-name">${state.user?.name || "-"}</h3>
+              <p class="account-copy">${state.user?.email || ""}</p>
+            </div>
           </div>
-          <span class="plan-badge">${plan.label}</span>
+          <div class="topbar-side">
+            <span class="plan-badge">${plan.label}</span>
+            <span class="small-chip">${formatSignalsPerHour(plan.currentLimit)}</span>
+          </div>
         </div>
-        <p class="account-copy">${state.user?.email || ""}</p>
+        <div class="subscription-actions">
+          <label class="ghost-button upload-button" for="avatarInput">${t("settings.changeAvatar")}</label>
+          ${hasAvatar ? `<button class="action-button" data-action="clear-avatar" type="button">${t("settings.clearAvatar")}</button>` : ""}
+        </div>
+        <input id="avatarInput" class="hidden-input" type="file" accept="image/png,image/jpeg,image/webp" />
       </article>
 
       <article class="settings-card">
         <div class="settings-head">
-          <div><p class="eyebrow">${t("settings.language")}</p><h3 class="settings-title">${t("settings.language")}</h3></div>
+          <div>
+            <p class="eyebrow">${t("settings.language")}</p>
+            <h3 class="settings-title">${t("settings.language")}</h3>
+          </div>
         </div>
-        <div class="switcher">
-          <button class="language-option ${state.language === "ru" ? "active" : ""}" data-action="set-language" data-language="ru" type="button">${t("settings.ru")}</button>
-          <button class="language-option ${state.language === "en" ? "active" : ""}" data-action="set-language" data-language="en" type="button">${t("settings.en")}</button>
+        <p class="helper-text">${t("settings.languageHint")}</p>
+        <div class="language-grid">
+          ${LANGUAGE_OPTIONS.map((language) => `
+            <button
+              class="language-option ${activeLanguage === language.code ? "active" : ""}"
+              data-action="set-language"
+              data-language="${language.code}"
+              type="button"
+            >${getLanguageLabel(language.code)}</button>
+          `).join("")}
         </div>
       </article>
 
@@ -1495,24 +2616,37 @@ function renderSettingsScreen() {
             <button class="ghost-button" data-action="toggle-notifications" type="button">${state.notificationsEnabled ? t("actions.disable") : t("actions.enable")}</button>
           </div>
           <div class="settings-row">
-            <span>${t("settings.testPush")}</span>
-            <button class="ghost-button" data-action="send-test-push" type="button">${t("settings.testPush")}</button>
-          </div>
-          <div class="settings-row">
             <span>${t("settings.sounds")}</span>
             <button class="ghost-button" data-action="toggle-sounds" type="button">${state.soundsEnabled ? t("actions.disable") : t("actions.enable")}</button>
           </div>
         </div>
-        <p class="helper-text">${t("settings.notificationsHelp")}</p>
+        <p class="helper-text">${t("settings.notificationsHint")}</p>
       </article>
 
       <article class="subscription-card">
         <div class="subscription-head">
           <div>
-            <p class="eyebrow">${t("settings.subscription")}</p>
-            <h3 class="settings-title">${plan.label}</h3>
+            <p class="eyebrow">${t("settings.tiersTitle")}</p>
+            <h3 class="settings-title">${t("settings.subscription")}</h3>
           </div>
           <span class="small-chip">${formatSignalsPerHour(plan.currentLimit)}</span>
+        </div>
+        <div class="tier-grid">
+          <article class="tier-card ${plan.plus ? "active" : ""}">
+            <span class="plan-badge">${t("settings.plus")}</span>
+            <strong>${t("settings.buyPlus")}</strong>
+            <p class="helper-text">${t("settings.plusPerk")}</p>
+          </article>
+          <article class="tier-card">
+            <span class="plan-badge">${t("settings.proLabel")}</span>
+            <strong>${t("settings.autoEntry")}</strong>
+            <p class="helper-text">${t("settings.proPerk")}</p>
+          </article>
+          <article class="tier-card">
+            <span class="plan-badge">${t("settings.eliteLabel")}</span>
+            <strong>${t("settings.buySoon")}</strong>
+            <p class="helper-text">${t("settings.elitePerk")}</p>
+          </article>
         </div>
         <p class="subscription-copy">${plan.plus ? t("home.plusCopy") : t("settings.promoHint")}</p>
         <div class="settings-row">
@@ -1520,6 +2654,7 @@ function renderSettingsScreen() {
           <strong>${formatSignalsPerHour(getSignalLimit())}</strong>
         </div>
         ${renderSignalLimitOptions()}
+        ${!plan.plus ? `<button class="primary-button" data-action="buy-plus" type="button">${t("settings.buyPlus")}</button>` : ""}
         ${
           !plan.plus
             ? `
@@ -1534,6 +2669,55 @@ function renderSettingsScreen() {
               `
               : `<p class="helper-text">${t("settings.promoForever")}</p>`
         }
+      </article>
+
+      <article class="settings-card">
+        <div class="settings-head">
+          <div>
+            <p class="eyebrow">${t("settings.exchangeTitle")}</p>
+            <h3 class="settings-title">${t("settings.exchangeTitle")}</h3>
+          </div>
+        </div>
+        <p class="helper-text">${t("settings.exchangeHint")}</p>
+        <p class="helper-text">${t("settings.exchangeSecurity")}</p>
+        <div class="subscription-actions">
+          <button class="primary-button" data-action="show-exchange-info" type="button">${t("settings.connectExchange")}</button>
+          <button class="action-button" data-action="show-auto-entry-info" type="button">${t("settings.autoEntry")}</button>
+        </div>
+        <p class="helper-text">${t("settings.autoEntryHint")}</p>
+      </article>
+
+      <article class="settings-card">
+        <div class="settings-head">
+          <div>
+            <p class="eyebrow">${t("settings.sessions")}</p>
+            <h3 class="settings-title">${t("settings.sessions")}</h3>
+          </div>
+        </div>
+        <p class="helper-text">${t("settings.sessionsHint")}</p>
+        <div class="chip-grid">
+          ${["asia", "london", "newyork"].map((session) => `
+            <button
+              class="filter-chip ${preferredSessions.has(session) ? "active" : ""}"
+              data-action="toggle-session-setting"
+              data-session="${session}"
+              type="button"
+            >${getSessionLabel(session)}</button>
+          `).join("")}
+        </div>
+      </article>
+
+      ${renderPairSettingsCard()}
+      ${renderPushHistoryCard()}
+      <article class="settings-card">
+        <div class="settings-head">
+          <div>
+            <p class="eyebrow">${t("settings.supportTitle")}</p>
+            <h3 class="settings-title">${t("settings.supportTitle")}</h3>
+          </div>
+        </div>
+        <p class="helper-text">${t("settings.supportHint")}</p>
+        <button class="ghost-button" data-action="show-support-info" type="button">${t("settings.supportButton")}</button>
       </article>
 
       ${renderInstallCard()}
@@ -1585,10 +2769,16 @@ function renderNav() {
 }
 
 function renderLaunchSplash() {
+  const letters = Array.from("TRADE AI")
+    .map((letter, index) => `<span class="launch-letter ${letter === " " ? "space" : ""}" style="--letter-index:${index}">${letter === " " ? "&nbsp;" : letter}</span>`)
+    .join("");
   return `
     <div class="launch-splash" aria-hidden="true">
       <div class="launch-orb"></div>
-      <div class="launch-logo">${getLogoMarkup()}</div>
+      <div class="launch-stack">
+        <div class="launch-logo">${getLogoMarkup()}</div>
+        <div class="launch-wordmark">${letters}</div>
+      </div>
     </div>
   `;
 }
@@ -1641,6 +2831,12 @@ function setActiveTab(nextTab) {
   state.navHidden = false;
   state.paymentSheetOpen = false;
   render();
+  const screens = document.querySelector(".screens");
+  if (screens) {
+    screens.classList.remove("tab-transition");
+    void screens.offsetWidth;
+    screens.classList.add("tab-transition");
+  }
   if (nextTab === "market") {
     void refreshMarketData(true);
   }
@@ -1673,12 +2869,21 @@ function focusPendingSettingsSection() {
 }
 
 function handleScroll() {
-  lastScrollY = window.scrollY;
-  state.navHidden = false;
+  const currentScrollY = window.scrollY;
+  const delta = currentScrollY - lastScrollY;
+  if (Math.abs(delta) < 8) {
+    lastScrollY = currentScrollY;
+    return;
+  }
+  state.navHidden = delta > 0 && currentScrollY > 72;
+  if (currentScrollY < 18) {
+    state.navHidden = false;
+  }
   const nav = document.querySelector(".nav-bar");
   if (nav) {
-    nav.classList.remove("is-hidden");
+    nav.classList.toggle("is-hidden", state.navHidden);
   }
+  lastScrollY = currentScrollY;
 }
 
 function handleClick(event) {
@@ -1712,8 +2917,8 @@ function handleClick(event) {
     return;
   }
 
-  if (action === "open-payment-sheet" || action === "start-trial") {
-    void startCheckout("stripe");
+  if (action === "open-payment-sheet" || action === "start-trial" || action === "buy-plus") {
+    showSubscriptionPlaceholder();
     return;
   }
 
@@ -1756,11 +2961,6 @@ function handleClick(event) {
     return;
   }
 
-  if (action === "send-test-push") {
-    void sendTestPush();
-    return;
-  }
-
   if (action === "toggle-sounds") {
     void toggleSounds();
     return;
@@ -1784,6 +2984,41 @@ function handleClick(event) {
 
   if (action === "oauth-apple") {
     void startOAuth("apple");
+    return;
+  }
+
+  if (action === "toggle-session-setting") {
+    void togglePreferredSession(String(button.dataset.session || ""));
+    return;
+  }
+
+  if (action === "toggle-pair-setting") {
+    void toggleEnabledPair(String(button.dataset.pair || ""));
+    return;
+  }
+
+  if (action === "toggle-watchlist") {
+    void toggleWatchlistPair(String(button.dataset.pair || ""));
+    return;
+  }
+
+  if (action === "clear-avatar") {
+    void clearAvatar();
+    return;
+  }
+
+  if (action === "show-support-info") {
+    showSupportPlaceholder();
+    return;
+  }
+
+  if (action === "show-exchange-info") {
+    showExchangePlaceholder();
+    return;
+  }
+
+  if (action === "show-auto-entry-info") {
+    showAutoEntryPlaceholder();
     return;
   }
 
@@ -1816,6 +3051,26 @@ function handleSubmit(event) {
   }
   if (event.target.id === "promoForm") {
     void activatePromoCode(event.target);
+    return;
+  }
+  if (event.target.id === "riskPlannerForm") {
+    const formData = new FormData(event.target);
+    saveTradeCapital(formData.get("capital"));
+  }
+}
+
+function handleChange(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement)) return;
+
+  if (target.id === "avatarInput") {
+    const file = target.files?.[0];
+    target.value = "";
+    if (file) {
+      void updateAvatar(file).catch(() => {
+        showToast(t("appName"), t("misc.apiError"), "info");
+      });
+    }
   }
 }
 
@@ -1884,6 +3139,7 @@ async function registerServiceWorker() {
 }
 
 document.addEventListener("click", handleClick);
+document.addEventListener("change", handleChange);
 document.addEventListener("submit", handleSubmit);
 window.addEventListener("scroll", handleScroll, { passive: true });
 

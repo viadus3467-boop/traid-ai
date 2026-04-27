@@ -11,4 +11,7 @@ ios/App/Pods/
 ios/App/build/
 www/
 data/trade-ai-db.json
+data/trade-ai.db
+data/trade-ai.db-shm
+data/trade-ai.db-wal
 npm-debug.log*

@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Trade Ai mobile trading app for selective Forex and crypto signals.",
+  "engines": {
+    "node": ">=22.5.0"
+  },
   "scripts": {
     "start": "node server.mjs",
     "build:mobile-web": "node scripts/prepare-capacitor.mjs",
