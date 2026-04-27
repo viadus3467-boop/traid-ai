@@ -55,6 +55,7 @@ const translations = {
     nav: {
       home: "Главная",
       market: "Рынок",
+      filters: "Фильтры",
       settings: "Настройки",
     },
     home: {
@@ -219,6 +220,7 @@ const translations = {
     nav: {
       home: "Home",
       market: "Market",
+      filters: "Filters",
       settings: "Settings",
     },
     home: {
@@ -466,6 +468,7 @@ Object.assign(translations.uk.auth, {
 Object.assign(translations.uk.nav, {
   home: "Головна",
   market: "Ринок",
+  filters: "Фільтри",
   settings: "Налаштування",
 });
 Object.assign(translations.uk.home, {
@@ -587,8 +590,8 @@ Object.assign(translations.ru.settings, {
   tiersTitle: "Планы доступа",
   buyPlus: "Купить PLUS",
   plusPerk: "До 10 сильных сигналов в час, фильтр пар и приоритетные уведомления.",
-  proLabel: "PRO AUTO",
-  proPerk: "Автовход в позицию, локальный риск-план и быстрый доступ к бирже.",
+  proLabel: "ELITE",
+  proPerk: "Персональные фильтры, расширенная аналитика и будущие AI-автостратегии.",
   eliteLabel: "ELITE",
   elitePerk: "Персональные фильтры, расширенная аналитика и будущие AI-автостратегии.",
   buySoon: "Скоро через App Store / Google Play",
@@ -611,8 +614,8 @@ Object.assign(translations.en.settings, {
   tiersTitle: "Access plans",
   buyPlus: "Buy PLUS",
   plusPerk: "Up to 10 strong signals per hour, pair filtering, and priority alerts.",
-  proLabel: "PRO AUTO",
-  proPerk: "Auto-entry, local risk planner, and faster exchange workflow.",
+  proLabel: "ELITE",
+  proPerk: "Personal filters, deeper analytics, and future AI automation.",
   eliteLabel: "ELITE",
   elitePerk: "Personal filters, deeper analytics, and future AI automation.",
   buySoon: "Coming soon via App Store / Google Play",
@@ -635,8 +638,8 @@ Object.assign(translations.uk.settings, {
   tiersTitle: "Плани доступу",
   buyPlus: "Купити PLUS",
   plusPerk: "До 10 сильних сигналів на годину, фільтр пар і пріоритетні сповіщення.",
-  proLabel: "PRO AUTO",
-  proPerk: "Автовхід у позицію, локальний risk planner і швидкий доступ до біржі.",
+  proLabel: "ELITE",
+  proPerk: "Персональні фільтри, глибша аналітика й майбутня AI-автоматизація.",
   eliteLabel: "ELITE",
   elitePerk: "Персональні фільтри, глибша аналітика й майбутня AI-автоматизація.",
   buySoon: "Скоро через App Store / Google Play",
@@ -1528,7 +1531,7 @@ function scheduleSplashDismiss() {
     splashTimerId = null;
     state.showSplash = false;
     render();
-  }, 1450);
+  }, 900);
 }
 
 async function refreshMarketData(force = false) {
@@ -1847,7 +1850,7 @@ function applyNavigationStateFromUrl() {
   const nextTab = String(url.searchParams.get("tab") || "").trim();
   const nextPair = String(url.searchParams.get("pair") || "").trim();
 
-  if (["home", "market", "settings"].includes(nextTab)) {
+  if (["home", "market", "filters", "settings"].includes(nextTab)) {
     state.activeTab = nextTab;
   }
 
@@ -1973,13 +1976,14 @@ function renderLoading() {
 function renderIntro() {
   const slides = t("intro");
   const slide = slides[state.onboardingStep];
-  const featureLine = state.onboardingStep === 0
-    ? "AI + EMA + RSI + MACD"
+  const featureLineSafe = state.onboardingStep === 0
+    ? "AI / EMA / RSI / MACD"
     : state.onboardingStep === 1
-      ? "Entry • TP • SL • Confidence"
+      ? "Entry / TP / SL / Confidence"
       : state.onboardingStep === 2
-        ? "FREE • PLUS • PRO AUTO"
-        : "Risk control • no noise • no promises";
+        ? "FREE / PLUS / ELITE"
+        : "Risk control / no noise / no promises";
+  const featureLine = featureLineSafe;
   return `
     <div class="intro-screen">
       <article class="intro-card">
@@ -1999,7 +2003,7 @@ function renderIntro() {
         </div>
         <div class="intro-feature-card">
           <span class="plan-badge">${t("appName")}</span>
-          <p class="helper-text">${featureLine}</p>
+          <p class="helper-text">${featureLineSafe}</p>
         </div>
         <div class="intro-dots">
           ${slides.map((_, index) => `<div class="intro-dot ${index === state.onboardingStep ? "active" : ""}"></div>`).join("")}
@@ -2028,13 +2032,7 @@ function renderAuth() {
           <div class="brand-copy auth-brand-copy">
             <p class="eyebrow">${t("brandLine")}</p>
             <h1 class="auth-title">${t("auth.title")}</h1>
-            <p class="auth-copy">${t("auth.subtitle")}</p>
           </div>
-        </div>
-        <div class="auth-chip-row">
-          <span class="small-chip">LONG / SHORT</span>
-          <span class="small-chip">AI Confidence</span>
-          <span class="small-chip">No noise</span>
         </div>
         <div class="auth-mode">
           <button class="auth-tab ${!isRegister ? "active" : ""}" data-action="set-auth-mode" data-mode="login" type="button">${t("auth.login")}</button>
@@ -2058,28 +2056,14 @@ function renderAuth() {
 
 function renderTopbar() {
   const plan = getPlanInfo();
-  const highlightedPair = state.selectedPair || getWatchlist()[0] || "";
-  const highlightedEntry = highlightedPair ? getMarketFeed().find((entry) => entry.pair === highlightedPair) || null : null;
   return `
     <header class="topbar">
       <div class="topbar-main">
-        <div class="brand">
-          <div class="logo-mark-mini">${getLogoMarkup()}</div>
-          <div class="brand-copy">
-            <p class="eyebrow">${t("brandLine")}</p>
-            <h1>${t("appName")}</h1>
-          </div>
-        </div>
-        <div class="topbar-strip">
-          <span class="selected-pair-chip">
-            ${highlightedPair ? `${t("market.filtered")}: <strong>${highlightedPair}</strong>` : `<strong>${formatSignalsPerHour(plan.currentLimit)}</strong>`}
-          </span>
-          <span class="${highlightedEntry ? `status-pill ${highlightedEntry.status}` : "plan-badge"}">${highlightedEntry ? getStatusLabel(highlightedEntry.status) : plan.label}</span>
-        </div>
+        <h1 class="topbar-title">${t("appName")}</h1>
       </div>
       <div class="topbar-side">
+        <span class="plan-badge">${plan.label}</span>
         <span class="small-chip">${formatSignalsPerHour(plan.currentLimit)}</span>
-        <div class="avatar-shell mini-avatar">${getAvatarMarkup()}</div>
       </div>
     </header>
   `;
@@ -2089,11 +2073,8 @@ function renderSessionFilterCard() {
   const preferredSessions = new Set(getPreferredSessions());
   return `
     <article class="settings-card compact-card">
-      <div class="settings-head">
-        <div>
-          <p class="eyebrow">${t("home.sessions")}</p>
-          <h3 class="settings-title">${t("home.sessions")}</h3>
-        </div>
+      <div class="settings-head compact-section-head">
+        <h3 class="settings-title">${t("home.sessions")}</h3>
       </div>
       <div class="chip-grid">
         ${["asia", "london", "newyork"].map((session) => `
@@ -2111,23 +2092,28 @@ function renderSessionFilterCard() {
 
 function renderWatchlistCard() {
   const watchlist = getWatchlist();
-  if (!watchlist.length) {
-    return "";
-  }
+  const emptyCopy = resolveLanguageKey() === "ru"
+    ? "Добавьте пары в watchlist, чтобы быстро открывать их из отдельной вкладки."
+    : resolveLanguageKey() === "uk"
+      ? "Додайте пари у watchlist, щоб швидко відкривати їх з окремої вкладки."
+      : "Add pairs to the watchlist to open them quickly from this tab.";
 
   return `
     <article class="settings-card compact-card">
-      <div class="settings-head">
-        <div>
-          <p class="eyebrow">${t("home.watchlist")}</p>
-          <h3 class="settings-title">${t("home.watchlist")}</h3>
-        </div>
+      <div class="settings-head compact-section-head">
+        <h3 class="settings-title">${t("home.watchlist")}</h3>
       </div>
-      <div class="chip-grid">
-        ${watchlist.map((pair) => `
-          <button class="filter-chip active" data-action="open-pair-market" data-pair="${pair}" type="button">${pair}</button>
-        `).join("")}
-      </div>
+      ${
+        watchlist.length
+          ? `
+            <div class="compact-chip-list">
+              ${watchlist.map((pair) => `
+                <button class="filter-chip active compact-chip" data-action="open-pair-market" data-pair="${pair}" type="button">${pair}</button>
+              `).join("")}
+            </div>
+          `
+          : `<p class="helper-text">${emptyCopy}</p>`
+      }
     </article>
   `;
 }
@@ -2318,26 +2304,20 @@ function renderPairSettingsCard() {
 
   return `
     <article class="settings-card">
-      <div class="settings-head">
-        <div>
-          <p class="eyebrow">${t("settings.pairsTitle")}</p>
-          <h3 class="settings-title">${t("settings.pairsTitle")}</h3>
-        </div>
+      <div class="settings-head compact-section-head">
+        <h3 class="settings-title">${t("settings.pairsTitle")}</h3>
       </div>
       <p class="helper-text">${t("settings.pairsHint")}</p>
-      <div class="pair-settings-list">
+      <div class="pair-settings-list compact-pair-settings-list">
         ${market.map((pair) => `
-          <article class="pair-settings-item">
-            <div>
-              <strong>${pair.pair}</strong>
-              <p class="helper-text">${localizedText(pair.summary)}</p>
-            </div>
-            <div class="pair-settings-actions">
-              <button class="chip-button ${enabledPairs.has(pair.pair) ? "active" : ""}" data-action="toggle-pair-setting" data-pair="${pair.pair}" type="button">
-                ${enabledPairs.has(pair.pair) ? t("settings.enabled") : t("settings.disabled")}
+          <article class="pair-settings-item compact-pair-settings-item">
+            <strong>${pair.pair}</strong>
+            <div class="pair-settings-actions compact-pair-settings-actions">
+              <button class="chip-button compact-chip ${enabledPairs.has(pair.pair) ? "active" : ""}" data-action="toggle-pair-setting" data-pair="${pair.pair}" type="button">
+                ${enabledPairs.has(pair.pair) ? "ON" : "OFF"}
               </button>
-              <button class="chip-button ${watchlist.has(pair.pair) ? "active" : ""}" data-action="toggle-watchlist" data-pair="${pair.pair}" type="button">
-                ${watchlist.has(pair.pair) ? t("settings.unwatch") : t("settings.watch")}
+              <button class="chip-button compact-chip ${watchlist.has(pair.pair) ? "active" : ""}" data-action="toggle-watchlist" data-pair="${pair.pair}" type="button">
+                ${watchlist.has(pair.pair) ? "★" : "+"}
               </button>
             </div>
           </article>
@@ -2384,6 +2364,7 @@ function renderHomeScreen() {
   const bestSignal = visibleSignals[0];
   const bestLevel = bestSignal ? getSignalLevel(bestSignal) : null;
   const plan = getPlanInfo();
+  const enabledPairsCount = getEnabledPairs().length;
 
   return `
     <div class="screen-stack">
@@ -2401,10 +2382,6 @@ function renderHomeScreen() {
         </div>
         <div class="hero-stats">
           <div class="hero-stat">
-            <span class="meta-label">${t("settings.subscription")}</span>
-            <strong class="meta-value">${plan.label}</strong>
-          </div>
-          <div class="hero-stat">
             <span class="meta-label">${t("home.limit")}</span>
             <strong class="meta-value">${formatSignalsPerHour(plan.currentLimit)}</strong>
           </div>
@@ -2413,15 +2390,13 @@ function renderHomeScreen() {
             <strong class="meta-value">${getMoodLabel()}</strong>
           </div>
           <div class="hero-stat">
-            <span class="meta-label">Sync</span>
-            <strong class="meta-value">${state.lastSync ? new Date(state.lastSync).toLocaleTimeString() : "--:--"}</strong>
+            <span class="meta-label">${t("settings.pairsTitle")}</span>
+            <strong class="meta-value">${enabledPairsCount}</strong>
           </div>
         </div>
       </article>
 
-      ${renderSessionFilterCard()}
       ${renderNotificationPrompt()}
-      ${renderWatchlistCard()}
       ${renderNoTradeZoneCard()}
 
       ${
@@ -2489,7 +2464,12 @@ function renderMarketScreen() {
           </div>
           ${
             state.selectedPair
-              ? `<span class="selected-pair-chip">${t("market.filtered")}: <strong>${state.selectedPair}</strong></span>`
+              ? `
+                <span class="selected-pair-chip">
+                  <span class="selected-pair-label">${t("market.filtered")}</span>
+                  <strong>${state.selectedPair}</strong>
+                </span>
+              `
               : `<span class="small-chip">${market.length}</span>`
           }
         </div>
@@ -2526,6 +2506,20 @@ function renderMarketScreen() {
   `;
 }
 
+function renderFiltersScreen() {
+  return `
+    <div class="screen-stack filters-screen">
+      <div class="section-header">
+        <h2 class="screen-title">${t("nav.filters")}</h2>
+      </div>
+
+      ${renderSessionFilterCard()}
+      ${renderWatchlistCard()}
+      ${renderPairSettingsCard()}
+    </div>
+  `;
+}
+
 function renderSignalLimitOptions() {
   const max = state.user?.plan === "plus" ? 10 : 2;
   const options = max === 10 ? [2, 4, 6, 8, 10] : [1, 2];
@@ -2547,7 +2541,6 @@ function renderSignalLimitOptions() {
 
 function renderSettingsScreen() {
   const plan = getPlanInfo();
-  const preferredSessions = new Set(getPreferredSessions());
   const activeLanguage = resolveLanguageKey();
   const hasAvatar = Boolean(state.user?.settings?.avatarDataUrl);
 
@@ -2638,11 +2631,6 @@ function renderSettingsScreen() {
             <p class="helper-text">${t("settings.plusPerk")}</p>
           </article>
           <article class="tier-card">
-            <span class="plan-badge">${t("settings.proLabel")}</span>
-            <strong>${t("settings.autoEntry")}</strong>
-            <p class="helper-text">${t("settings.proPerk")}</p>
-          </article>
-          <article class="tier-card">
             <span class="plan-badge">${t("settings.eliteLabel")}</span>
             <strong>${t("settings.buySoon")}</strong>
             <p class="helper-text">${t("settings.elitePerk")}</p>
@@ -2687,28 +2675,6 @@ function renderSettingsScreen() {
         <p class="helper-text">${t("settings.autoEntryHint")}</p>
       </article>
 
-      <article class="settings-card">
-        <div class="settings-head">
-          <div>
-            <p class="eyebrow">${t("settings.sessions")}</p>
-            <h3 class="settings-title">${t("settings.sessions")}</h3>
-          </div>
-        </div>
-        <p class="helper-text">${t("settings.sessionsHint")}</p>
-        <div class="chip-grid">
-          ${["asia", "london", "newyork"].map((session) => `
-            <button
-              class="filter-chip ${preferredSessions.has(session) ? "active" : ""}"
-              data-action="toggle-session-setting"
-              data-session="${session}"
-              type="button"
-            >${getSessionLabel(session)}</button>
-          `).join("")}
-        </div>
-      </article>
-
-      ${renderPairSettingsCard()}
-      ${renderPushHistoryCard()}
       <article class="settings-card">
         <div class="settings-head">
           <div>
@@ -2763,6 +2729,7 @@ function renderNav() {
     <nav class="nav-bar ${state.navHidden ? "is-hidden" : ""}">
       <button class="nav-item ${state.activeTab === "home" ? "active" : ""}" data-action="set-tab" data-tab="home" type="button">${t("nav.home")}</button>
       <button class="nav-item ${state.activeTab === "market" ? "active" : ""}" data-action="set-tab" data-tab="market" type="button">${t("nav.market")}</button>
+      <button class="nav-item ${state.activeTab === "filters" ? "active" : ""}" data-action="set-tab" data-tab="filters" type="button">${t("nav.filters")}</button>
       <button class="nav-item ${state.activeTab === "settings" ? "active" : ""}" data-action="set-tab" data-tab="settings" type="button">${t("nav.settings")}</button>
     </nav>
   `;
@@ -2784,7 +2751,13 @@ function renderLaunchSplash() {
 }
 
 function renderApp() {
-  const screen = state.activeTab === "market" ? renderMarketScreen() : state.activeTab === "settings" ? renderSettingsScreen() : renderHomeScreen();
+  const screen = state.activeTab === "market"
+    ? renderMarketScreen()
+    : state.activeTab === "filters"
+      ? renderFiltersScreen()
+      : state.activeTab === "settings"
+        ? renderSettingsScreen()
+        : renderHomeScreen();
   return `
       <div class="app-shell">
         ${renderTopbar()}
@@ -2870,18 +2843,10 @@ function focusPendingSettingsSection() {
 
 function handleScroll() {
   const currentScrollY = window.scrollY;
-  const delta = currentScrollY - lastScrollY;
-  if (Math.abs(delta) < 8) {
-    lastScrollY = currentScrollY;
-    return;
-  }
-  state.navHidden = delta > 0 && currentScrollY > 72;
-  if (currentScrollY < 18) {
-    state.navHidden = false;
-  }
+  state.navHidden = false;
   const nav = document.querySelector(".nav-bar");
   if (nav) {
-    nav.classList.toggle("is-hidden", state.navHidden);
+    nav.classList.remove("is-hidden");
   }
   lastScrollY = currentScrollY;
 }
