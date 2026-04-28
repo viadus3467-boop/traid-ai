@@ -23,6 +23,7 @@ export const LANGUAGE_CODES = [
   "ko",
   "id",
 ];
+export const SIGNAL_STRENGTH_OPTIONS = ["all", "strong", "medium", "weak"];
 
 const DEFAULT_WATCHLIST = ["EUR/USD", "BTC/USDT", "ETH/USDT"];
 const STATUS_RANK = new Map([
@@ -69,6 +70,18 @@ export function normalizeWatchlist(values) {
   return normalized.length ? normalized.slice(0, 8) : getDefaultWatchlist();
 }
 
+export function normalizeSignalStrength(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return SIGNAL_STRENGTH_OPTIONS.includes(normalized) ? normalized : "all";
+}
+
+function resolveSignalStrength(signal = {}) {
+  const confidence = Number(signal.confidence || 0);
+  if (confidence >= 88) return "strong";
+  if (confidence >= 76) return "medium";
+  return "weak";
+}
+
 export function ensureUserSettings(settings = {}) {
   return {
     language: LANGUAGE_CODES.includes(String(settings.language || "").trim().toLowerCase())
@@ -77,6 +90,7 @@ export function ensureUserSettings(settings = {}) {
     theme: settings.theme === "light" ? "light" : "dark",
     notificationsEnabled: Boolean(settings.notificationsEnabled),
     soundsEnabled: "soundsEnabled" in settings ? Boolean(settings.soundsEnabled) : true,
+    signalStrength: normalizeSignalStrength(settings.signalStrength),
     enabledPairs: normalizeEnabledPairs(settings.enabledPairs),
     preferredSessions: normalizePreferredSessions(settings.preferredSessions),
     watchlist: normalizeWatchlist(settings.watchlist),
@@ -101,6 +115,7 @@ export function isSessionEnabledForUser(sessionKey, user) {
 }
 
 export function filterSignalsForUser(signals, user, pairFilter = "") {
+  const signalStrength = normalizeSignalStrength(user?.settings?.signalStrength);
   return (Array.isArray(signals) ? signals : []).filter((signal) => {
     if (pairFilter && signal.pair !== pairFilter) {
       return false;
@@ -108,7 +123,13 @@ export function filterSignalsForUser(signals, user, pairFilter = "") {
     if (!pairFilter && !isPairEnabledForUser(signal.pair, user)) {
       return false;
     }
-    return isSessionEnabledForUser(signal.session, user);
+    if (!isSessionEnabledForUser(signal.session, user)) {
+      return false;
+    }
+    if (signalStrength !== "all" && resolveSignalStrength(signal) !== signalStrength) {
+      return false;
+    }
+    return true;
   });
 }
 

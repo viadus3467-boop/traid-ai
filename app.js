@@ -705,6 +705,96 @@ Object.assign(translations.uk.misc, {
   autoEntrySoon: "Автовхід буде доступний лише для PLUS і старших планів.",
 });
 
+Object.assign(translations.ru.nav, { subscription: "Подписка" });
+Object.assign(translations.en.nav, { subscription: "Plans" });
+Object.assign(translations.uk.nav, { subscription: "Підписка" });
+
+Object.assign(translations.ru.auth, {
+  privacyConsent: "Я прочитал",
+  privacyLink: "правила конфиденциальности",
+  privacyRequired: "Подтвердите правила конфиденциальности, чтобы создать аккаунт.",
+});
+Object.assign(translations.en.auth, {
+  privacyConsent: "I have read the",
+  privacyLink: "privacy rules",
+  privacyRequired: "Please accept the privacy rules to create an account.",
+});
+Object.assign(translations.uk.auth, {
+  privacyConsent: "Я прочитав",
+  privacyLink: "правила конфіденційності",
+  privacyRequired: "Підтвердьте правила конфіденційності, щоб створити акаунт.",
+});
+
+translations.ru.filtersPage = {
+  title: "Фильтры",
+  signalStrength: "Сила сигналов",
+  all: "Все",
+  strong: "Сильные",
+  medium: "Средние",
+  weak: "Слабые",
+  noTradeEmpty: "Сейчас плохих зон по выбранным фильтрам нет.",
+  historyEmpty: "История по выбранным фильтрам пока пуста.",
+};
+translations.en.filtersPage = {
+  title: "Filters",
+  signalStrength: "Signal strength",
+  all: "All",
+  strong: "Strong",
+  medium: "Medium",
+  weak: "Weak",
+  noTradeEmpty: "There are no blocked zones for the current filters.",
+  historyEmpty: "No signal history matches the current filters yet.",
+};
+translations.uk.filtersPage = {
+  title: "Фільтри",
+  signalStrength: "Сила сигналів",
+  all: "Усі",
+  strong: "Сильні",
+  medium: "Середні",
+  weak: "Слабкі",
+  noTradeEmpty: "Зараз немає заблокованих зон за вибраними фільтрами.",
+  historyEmpty: "Історія за вибраними фільтрами поки порожня.",
+};
+
+Object.assign(translations.ru.settings, {
+  notificationsLive: "После включения уведомления работают автоматически и всегда остаются активными.",
+  currentPlan: "Текущий план",
+  plusTrial: "Попробовать PLUS бесплатно 7 дней",
+  buyElite: "Купить ELITE",
+  promoShort: "Промокод PLUS",
+});
+Object.assign(translations.en.settings, {
+  notificationsLive: "Once enabled, notifications stay active automatically.",
+  currentPlan: "Current plan",
+  plusTrial: "Try PLUS free for 7 days",
+  buyElite: "Buy ELITE",
+  promoShort: "PLUS promo code",
+});
+Object.assign(translations.uk.settings, {
+  notificationsLive: "Після ввімкнення сповіщення працюють автоматично й залишаються активними.",
+  currentPlan: "Поточний план",
+  plusTrial: "Спробувати PLUS безкоштовно 7 днів",
+  buyElite: "Купити ELITE",
+  promoShort: "Промокод PLUS",
+});
+
+Object.assign(translations.ru.home, {
+  notificationsButton: "Включить уведомления",
+  notificationsCopy: "Разрешите уведомления сейчас, чтобы сильные LONG и SHORT сигналы приходили вовремя.",
+});
+Object.assign(translations.en.home, {
+  notificationsButton: "Enable notifications",
+  notificationsCopy: "Allow notifications now so strong LONG and SHORT signals arrive on time.",
+});
+Object.assign(translations.uk.home, {
+  notificationsButton: "Увімкнути сповіщення",
+  notificationsCopy: "Дозвольте сповіщення зараз, щоб сильні LONG і SHORT сигнали приходили вчасно.",
+});
+
+Object.assign(translations.ru.actions, { close: "Закрыть" });
+Object.assign(translations.en.actions, { close: "Close" });
+Object.assign(translations.uk.actions, { close: "Закрити" });
+
 const TRANSLATION_FALLBACK = "en";
 const LANGUAGE_OPTIONS = [
   { code: "ru", label: "Русский" },
@@ -824,7 +914,7 @@ const state = {
   activeTab: "home",
   authMode: "login",
   notificationsEnabled: localStorage.getItem(STORAGE_KEYS.notifications) === "true",
-  soundsEnabled: localStorage.getItem(STORAGE_KEYS.sounds) !== "false",
+  soundsEnabled: true,
   token: localStorage.getItem(STORAGE_KEYS.token) || "",
   user: null,
   sessionChecked: false,
@@ -842,6 +932,7 @@ const state = {
   noTradeZones: [],
   lastSync: 0,
   lastSignalIds: new Set(),
+  privacyModalOpen: false,
   cryptoInvoice: null,
   paymentSheetOpen: false,
   tradeCapital: Number(localStorage.getItem(STORAGE_KEYS.tradeCapital) || 250),
@@ -893,7 +984,7 @@ function renderNotificationPrompt() {
       <h3 class="section-title">${t("home.notificationsTitle")}</h3>
       <p class="empty-copy">${t("home.notificationsCopy")}</p>
       <div class="notification-card-actions">
-        <button class="primary-button" data-action="open-notification-settings" type="button">${t("home.notificationsButton")}</button>
+        <button class="primary-button" data-action="enable-notifications" type="button">${t("home.notificationsButton")}</button>
       </div>
     </article>
   `;
@@ -1060,11 +1151,11 @@ function syncUserToState(user) {
   state.language = user.settings?.language || state.language;
   state.theme = user.settings?.theme || state.theme;
   state.notificationsEnabled = Boolean(user.settings?.notificationsEnabled);
-  state.soundsEnabled = "soundsEnabled" in (user.settings || {}) ? Boolean(user.settings?.soundsEnabled) : state.soundsEnabled;
+  state.soundsEnabled = true;
   localStorage.setItem(STORAGE_KEYS.language, state.language);
   localStorage.setItem(STORAGE_KEYS.theme, state.theme);
   localStorage.setItem(STORAGE_KEYS.notifications, String(state.notificationsEnabled));
-  localStorage.setItem(STORAGE_KEYS.sounds, String(state.soundsEnabled));
+  localStorage.setItem(STORAGE_KEYS.sounds, "true");
   localStorage.setItem(STORAGE_KEYS.signalLimit, String(getSignalLimit()));
 }
 
@@ -1081,6 +1172,7 @@ function clearSessionState() {
   state.noTradeZones = [];
   state.dataLoaded = false;
   state.lastSignalIds = new Set();
+  state.privacyModalOpen = false;
   state.cryptoInvoice = null;
   state.paymentSheetOpen = false;
   localStorage.removeItem(STORAGE_KEYS.token);
@@ -1252,6 +1344,44 @@ function getEnabledPairs() {
 
 function getPreferredSessions() {
   return Array.isArray(state.user?.settings?.preferredSessions) ? state.user.settings.preferredSessions : ["asia", "london", "newyork"];
+}
+
+function getSignalStrengthFilter() {
+  const value = String(state.user?.settings?.signalStrength || "all").trim().toLowerCase();
+  return ["all", "strong", "medium", "weak"].includes(value) ? value : "all";
+}
+
+function matchesSignalStrength(signal, strength = getSignalStrengthFilter()) {
+  if (strength === "all") {
+    return true;
+  }
+  return getSignalLevel(signal).key === strength;
+}
+
+function getVisibleNoTradeZones() {
+  const enabledPairs = new Set(getEnabledPairs());
+  const preferredSessions = new Set(getPreferredSessions());
+  return (Array.isArray(state.noTradeZones) ? state.noTradeZones : []).filter((entry) => {
+    if (!enabledPairs.has(entry.pair)) {
+      return false;
+    }
+    return preferredSessions.has(String(entry.session || "").toLowerCase());
+  });
+}
+
+function getVisibleSignalHistory() {
+  const enabledPairs = new Set(getEnabledPairs());
+  const preferredSessions = new Set(getPreferredSessions());
+  const strength = getSignalStrengthFilter();
+  return (Array.isArray(state.signalHistory) ? state.signalHistory : []).filter((entry) => {
+    if (!enabledPairs.has(entry.pair)) {
+      return false;
+    }
+    if (!preferredSessions.has(String(entry.session || "").toLowerCase())) {
+      return false;
+    }
+    return matchesSignalStrength(entry, strength);
+  });
 }
 
 function getPairKey(pair) {
@@ -1463,7 +1593,11 @@ function getMoodLabel() {
 
 function getVisibleSignals() {
   const limit = getSignalLimit();
-  return [...getSignalFeed()].sort((a, b) => b.confidence - a.confidence).slice(0, limit);
+  const strength = getSignalStrengthFilter();
+  return [...getSignalFeed()]
+    .filter((signal) => matchesSignalStrength(signal, strength))
+    .sort((a, b) => b.confidence - a.confidence)
+    .slice(0, limit);
 }
 
 function layoutToasts() {
@@ -1616,36 +1750,34 @@ async function savePreferences(patch, toastKey) {
   }
 }
 
-async function toggleNotifications() {
-  if (!state.notificationsEnabled) {
-    if (!supportsWebPush()) {
-      showToast(t("appName"), t("misc.pushUnsupported"), "info");
-      return;
-    }
-
-    const permission = await Notification.requestPermission();
-    if (permission === "denied") {
-      showToast(t("appName"), t("misc.pushPermissionBlocked"), "info");
-      return;
-    }
-
-    if (permission !== "granted") {
-      return;
-    }
-
-    await savePreferences({ notificationsEnabled: true }, "misc.notificationsOn");
-
-    try {
-      await subscribeCurrentDeviceToPush();
-      showToast(t("appName"), t("misc.pushLinked"), "info");
-    } catch (error) {
-      showToast(t("appName"), error instanceof Error ? error.message : t("misc.pushUnavailable"), "info");
-    }
+async function enableNotifications() {
+  if (state.notificationsEnabled) {
     return;
   }
 
-  await unsubscribeCurrentDeviceFromPush();
-  await savePreferences({ notificationsEnabled: false }, "misc.notificationsOff");
+  if (!supportsWebPush()) {
+    showToast(t("appName"), t("misc.pushUnsupported"), "info");
+    return;
+  }
+
+  const permission = await Notification.requestPermission();
+  if (permission === "denied") {
+    showToast(t("appName"), t("misc.pushPermissionBlocked"), "info");
+    return;
+  }
+
+  if (permission !== "granted") {
+    return;
+  }
+
+  await savePreferences({ notificationsEnabled: true }, "misc.notificationsOn");
+
+  try {
+    await subscribeCurrentDeviceToPush();
+    showToast(t("appName"), t("misc.pushLinked"), "info");
+  } catch (error) {
+    showToast(t("appName"), error instanceof Error ? error.message : t("misc.pushUnavailable"), "info");
+  }
 }
 
 async function sendTestPush() {
@@ -1659,13 +1791,6 @@ async function sendTestPush() {
   } catch (error) {
     showToast(t("appName"), error instanceof Error ? error.message : t("misc.pushUnavailable"), "info");
   }
-}
-
-async function toggleSounds() {
-  await savePreferences(
-    { soundsEnabled: !state.soundsEnabled },
-    !state.soundsEnabled ? "misc.soundsOn" : "misc.soundsOff",
-  );
 }
 
 async function setLanguage(language) {
@@ -1761,6 +1886,11 @@ async function toggleWatchlistPair(pair) {
   }
 
   await savePreferences({ watchlist: [...current] }, "misc.watchlistUpdated");
+  void refreshMarketData(true);
+}
+
+async function setSignalStrengthFilter(signalStrength) {
+  await savePreferences({ signalStrength }, null);
   void refreshMarketData(true);
 }
 
@@ -1902,6 +2032,11 @@ async function handleAuthSubmit(form) {
   };
   if (state.authMode === "register") {
     body.name = String(formData.get("name") || "").trim();
+    body.privacyAccepted = formData.get("privacyAccepted") === "on";
+    if (!body.privacyAccepted) {
+      showToast(t("appName"), t("auth.privacyRequired"), "info");
+      return;
+    }
   }
 
   try {
@@ -1910,12 +2045,17 @@ async function handleAuthSubmit(form) {
     localStorage.setItem(STORAGE_KEYS.token, state.token);
     syncUserToState(payload.user);
     state.authMode = "login";
+    state.privacyModalOpen = false;
     state.showSplash = true;
     showToast(t("appName"), wasRegister ? t("auth.registerOk") : t("auth.loginOk"), "info");
     render();
     void refreshMarketData(true);
     void syncPushSubscription();
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message === "Privacy rules must be accepted.") {
+      showToast(t("appName"), t("auth.privacyRequired"), "info");
+      return;
+    }
     showToast(t("appName"), t("auth.invalid"), "info");
   }
 }
@@ -2005,6 +2145,7 @@ function renderIntro() {
           <span class="plan-badge">${t("appName")}</span>
           <p class="helper-text">${featureLineSafe}</p>
         </div>
+        <button class="inline-link privacy-link-inline" data-action="open-privacy-modal" type="button">${t("auth.privacyLink")}</button>
         <div class="intro-dots">
           ${slides.map((_, index) => `<div class="intro-dot ${index === state.onboardingStep ? "active" : ""}"></div>`).join("")}
         </div>
@@ -2018,6 +2159,7 @@ function renderIntro() {
           </div>
         </div>
       </article>
+      ${state.privacyModalOpen ? renderPrivacyModal() : ""}
     </div>
   `;
 }
@@ -2047,17 +2189,57 @@ function renderAuth() {
           ${isRegister ? `<label class="field"><span>${t("auth.name")}</span><input name="name" type="text" required /></label>` : ""}
           <label class="field"><span>${t("auth.email")}</span><input name="email" type="email" required /></label>
           <label class="field"><span>${t("auth.password")}</span><input name="password" type="password" minlength="4" required /></label>
+          ${
+            isRegister
+              ? `
+                  <label class="consent-field">
+                    <input name="privacyAccepted" type="checkbox" required />
+                    <span>${t("auth.privacyConsent")} <button class="inline-link" data-action="open-privacy-modal" type="button">${t("auth.privacyLink")}</button></span>
+                  </label>
+                `
+              : ""
+          }
           <button class="primary-button" type="submit">${isRegister ? t("auth.submitRegister") : t("auth.submitLogin")}</button>
         </form>
+      </article>
+      ${state.privacyModalOpen ? renderPrivacyModal() : ""}
+    </div>
+  `;
+}
+
+function renderPrivacyModal() {
+  return `
+    <div class="privacy-modal-backdrop">
+      <article class="privacy-modal">
+        <div class="privacy-modal-head">
+          <div>
+            <p class="eyebrow">${t("settings.legalTitle")}</p>
+            <h3 class="settings-title">${t("settings.legalTitle")}</h3>
+          </div>
+          <button class="ghost-button modal-close-button" data-action="close-privacy-modal" type="button">${t("actions.close")}</button>
+        </div>
+        <div class="privacy-modal-copy">
+          <p class="helper-text">${t("settings.legalLead")}</p>
+          <p class="helper-text">${t("settings.legalData")}</p>
+          <p class="helper-text">${t("settings.legalSignals")}</p>
+          <p class="helper-text">${t("settings.legalPayments")}</p>
+        </div>
+        <p class="legal-warning">${t("settings.legalWarning")}</p>
       </article>
     </div>
   `;
 }
 
 function renderTopbar() {
+  if (state.activeTab !== "home") {
+    return "";
+  }
   const plan = getPlanInfo();
   return `
     <header class="topbar">
+      <button class="topbar-avatar" data-action="open-account-settings" type="button" aria-label="${t("settings.account")}">
+        <span class="avatar-shell topbar-avatar-shell">${getAvatarMarkup()}</span>
+      </button>
       <div class="topbar-main">
         <h1 class="topbar-title">${t("appName")}</h1>
       </div>
@@ -2084,6 +2266,28 @@ function renderSessionFilterCard() {
             data-session="${session}"
             type="button"
           >${getSessionLabel(session)}</button>
+        `).join("")}
+      </div>
+    </article>
+  `;
+}
+
+function renderSignalStrengthCard() {
+  const current = getSignalStrengthFilter();
+  const options = ["all", "strong", "medium", "weak"];
+  return `
+    <article class="settings-card compact-card">
+      <div class="settings-head compact-section-head">
+        <h3 class="settings-title">${t("filtersPage.signalStrength")}</h3>
+      </div>
+      <div class="chip-grid">
+        ${options.map((option) => `
+          <button
+            class="filter-chip ${current === option ? "active" : ""}"
+            data-action="set-signal-strength"
+            data-strength="${option}"
+            type="button"
+          >${t(`filtersPage.${option}`)}</button>
         `).join("")}
       </div>
     </article>
@@ -2119,88 +2323,71 @@ function renderWatchlistCard() {
 }
 
 function renderNoTradeZoneCard() {
-  if (!Array.isArray(state.noTradeZones) || !state.noTradeZones.length) {
-    return "";
-  }
+  const noTradeZones = getVisibleNoTradeZones();
 
   return `
     <article class="settings-card compact-card">
-      <div class="settings-head">
-        <div>
-          <p class="eyebrow">${t("home.noTradeTitle")}</p>
-          <h3 class="settings-title">${t("home.noTradeTitle")}</h3>
-        </div>
+      <div class="settings-head compact-section-head">
+        <h3 class="settings-title">${t("home.noTradeTitle")}</h3>
       </div>
-      <p class="helper-text">${t("home.noTradeCopy")}</p>
-      <div class="activity-list">
-        ${state.noTradeZones.slice(0, 4).map((entry) => `
-          <article class="activity-item">
-            <div class="activity-head">
-              <strong>${entry.pair}</strong>
-              <span class="small-chip">${getSessionLabel(entry.session)}</span>
-            </div>
-            <p class="helper-text">${localizedText(entry.reason)}</p>
-          </article>
-        `).join("")}
-      </div>
+      ${
+        noTradeZones.length
+          ? `
+              <div class="activity-list compact-activity-list">
+                ${noTradeZones.slice(0, 6).map((entry) => `
+                  <article class="activity-item compact-activity-item">
+                    <div class="activity-head compact-activity-head">
+                      <strong>${entry.pair}</strong>
+                      <span class="small-chip">${getSessionLabel(entry.session)}</span>
+                    </div>
+                    <p class="helper-text">${localizedText(entry.reason)}</p>
+                  </article>
+                `).join("")}
+              </div>
+            `
+          : `<p class="helper-text">${t("filtersPage.noTradeEmpty")}</p>`
+      }
     </article>
   `;
 }
 
 function renderSignalHistoryCard() {
-  const stats = getSignalHistoryStats();
-  const history = Array.isArray(state.signalHistory) ? state.signalHistory : [];
+  const history = getVisibleSignalHistory();
+  const wins = history.filter((entry) => entry.status === "won").length;
+  const losses = history.filter((entry) => entry.status === "lost").length;
+  const open = history.filter((entry) => entry.status === "open").length;
+  const closed = wins + losses;
+  const winRate = closed ? Math.round((wins / closed) * 100) : 0;
 
   return `
     <article class="settings-card compact-card">
-      <div class="settings-head">
-        <div>
-          <p class="eyebrow">${t("home.historyTitle")}</p>
-          <h3 class="settings-title">${t("home.historyTitle")}</h3>
-        </div>
-      </div>
-      <div class="hero-stats history-stats">
-        <div class="hero-stat">
-          <span class="meta-label">${t("home.statsWinRate")}</span>
-          <strong class="meta-value">${stats.winRate}%</strong>
-        </div>
-        <div class="hero-stat">
-          <span class="meta-label">Win / Loss</span>
-          <strong class="meta-value">${stats.wins} / ${stats.losses}</strong>
-        </div>
-        <div class="hero-stat">
-          <span class="meta-label">${t("home.statsOpen")}</span>
-          <strong class="meta-value">${stats.open}</strong>
-        </div>
-        <div class="hero-stat">
-          <span class="meta-label">Total</span>
-          <strong class="meta-value">${history.length}</strong>
-        </div>
+      <div class="settings-head compact-section-head">
+        <h3 class="settings-title">${t("home.historyTitle")}</h3>
       </div>
       ${
         history.length
           ? `
-            <div class="activity-list">
+            <div class="compact-chip-list compact-summary-row">
+              <span class="small-chip">${t("home.statsWinRate")}: ${winRate}%</span>
+              <span class="small-chip">Win / Loss: ${wins} / ${losses}</span>
+              <span class="small-chip">${t("home.statsOpen")}: ${open}</span>
+            </div>
+            <div class="activity-list compact-activity-list">
               ${history.slice(0, 4).map((entry) => `
-                <article class="activity-item">
-                  <div class="activity-head">
+                <article class="activity-item compact-activity-item">
+                  <div class="activity-head compact-activity-head">
                     <div class="activity-topline">
                       <span class="side-pill ${entry.side}">${t(`signal.${entry.side}`)}</span>
                       <span class="status-pill status-${entry.status}">${getHistoryStatusLabel(entry.status)}</span>
                     </div>
                     <strong>${entry.pair}</strong>
                   </div>
-                  <div class="activity-grid">
-                    <span>${t("signal.entry")}: ${formatNumber(entry.entry, 4)}</span>
-                    <span>${t("signal.confidence")}: ${entry.confidence}%</span>
-                    <span>${t("market.session")}: ${getSessionLabel(entry.session)}</span>
-                    <span>${formatTimestamp(entry.createdAt)}</span>
-                  </div>
+                  <p class="helper-text">${t("signal.confidence")}: ${entry.confidence}% • ${getSessionLabel(entry.session)} • ${formatTimestamp(entry.createdAt)}</p>
                 </article>
               `).join("")}
             </div>
           `
-          : `<p class="helper-text">${t("home.historyEmpty")}</p>`
+          : `<p class="helper-text">${t("filtersPage.historyEmpty")}</p>`
       }
     </article>
   `;
@@ -2397,7 +2584,6 @@ function renderHomeScreen() {
       </article>
 
       ${renderNotificationPrompt()}
-      ${renderNoTradeZoneCard()}
 
       ${
         visibleSignals.length
@@ -2441,8 +2627,6 @@ function renderHomeScreen() {
             </article>
           `
       }
-
-      ${renderSignalHistoryCard()}
     </div>
   `;
 }
@@ -2513,8 +2697,11 @@ function renderFiltersScreen() {
         <h2 class="screen-title">${t("nav.filters")}</h2>
       </div>
 
+      ${renderSignalStrengthCard()}
       ${renderSessionFilterCard()}
       ${renderWatchlistCard()}
+      ${renderNoTradeZoneCard()}
+      ${renderSignalHistoryCard()}
       ${renderPairSettingsCard()}
     </div>
   `;
@@ -2553,7 +2740,7 @@ function renderSettingsScreen() {
       <article class="account-card">
         <div class="account-head">
           <div class="account-profile">
-            <div class="avatar-shell">${getAvatarMarkup()}</div>
+            <div class="avatar-shell account-avatar-square">${getAvatarMarkup()}</div>
             <div>
               <p class="eyebrow">${t("settings.profileTitle")}</p>
               <h3 class="account-name">${state.user?.name || "-"}</h3>
@@ -2606,57 +2793,10 @@ function renderSettingsScreen() {
         <div class="settings-list">
           <div class="settings-row">
             <span>${t("settings.notifications")}</span>
-            <button class="ghost-button" data-action="toggle-notifications" type="button">${state.notificationsEnabled ? t("actions.disable") : t("actions.enable")}</button>
-          </div>
-          <div class="settings-row">
-            <span>${t("settings.sounds")}</span>
-            <button class="ghost-button" data-action="toggle-sounds" type="button">${state.soundsEnabled ? t("actions.disable") : t("actions.enable")}</button>
+            <span class="small-chip">${state.notificationsEnabled ? t("settings.on") : t("settings.off")}</span>
           </div>
         </div>
-        <p class="helper-text">${t("settings.notificationsHint")}</p>
-      </article>
-
-      <article class="subscription-card">
-        <div class="subscription-head">
-          <div>
-            <p class="eyebrow">${t("settings.tiersTitle")}</p>
-            <h3 class="settings-title">${t("settings.subscription")}</h3>
-          </div>
-          <span class="small-chip">${formatSignalsPerHour(plan.currentLimit)}</span>
-        </div>
-        <div class="tier-grid">
-          <article class="tier-card ${plan.plus ? "active" : ""}">
-            <span class="plan-badge">${t("settings.plus")}</span>
-            <strong>${t("settings.buyPlus")}</strong>
-            <p class="helper-text">${t("settings.plusPerk")}</p>
-          </article>
-          <article class="tier-card">
-            <span class="plan-badge">${t("settings.eliteLabel")}</span>
-            <strong>${t("settings.buySoon")}</strong>
-            <p class="helper-text">${t("settings.elitePerk")}</p>
-          </article>
-        </div>
-        <p class="subscription-copy">${plan.plus ? t("home.plusCopy") : t("settings.promoHint")}</p>
-        <div class="settings-row">
-          <span>${t("settings.signalLimit")}</span>
-          <strong>${formatSignalsPerHour(getSignalLimit())}</strong>
-        </div>
-        ${renderSignalLimitOptions()}
-        ${!plan.plus ? `<button class="primary-button" data-action="buy-plus" type="button">${t("settings.buyPlus")}</button>` : ""}
-        ${
-          !plan.plus
-            ? `
-                <form id="promoForm" class="promo-form">
-                  <label class="field">
-                    <span>${t("settings.promoTitle")}</span>
-                    <input name="code" type="text" placeholder="${t("settings.promoPlaceholder")}" autocomplete="off" required />
-                  </label>
-                  <button class="primary-button" type="submit">${t("settings.promoButton")}</button>
-                </form>
-                <p class="helper-text">${t("settings.promoHint")}</p>
-              `
-              : `<p class="helper-text">${t("settings.promoForever")}</p>`
-        }
+        <p class="helper-text">${t("settings.notificationsLive")}</p>
       </article>
 
       <article class="settings-card">
@@ -2686,8 +2826,6 @@ function renderSettingsScreen() {
         <button class="ghost-button" data-action="show-support-info" type="button">${t("settings.supportButton")}</button>
       </article>
 
-      ${renderInstallCard()}
-
       <article class="settings-card">
         <div class="settings-list">
           <div class="settings-row">
@@ -2701,24 +2839,74 @@ function renderSettingsScreen() {
           </div>
         </article>
 
-        <article class="legal-card">
-          <div>
-            <p class="eyebrow">${t("settings.legalTitle")}</p>
-            <h3 class="settings-title">${t("settings.legalTitle")}</h3>
-          </div>
-          <div class="legal-list">
-            <p class="helper-text">${t("settings.legalLead")}</p>
-            <p class="helper-text">${t("settings.legalData")}</p>
-            <p class="helper-text">${t("settings.legalSignals")}</p>
-            <p class="helper-text">${t("settings.legalPayments")}</p>
-          </div>
-          <p class="legal-warning">${t("settings.legalWarning")}</p>
-        </article>
+      <p class="helper-text">${t("misc.risk")}</p>
+    </div>
+  `;
+}
 
-        <p class="helper-text">${t("misc.risk")}</p>
+function renderSubscriptionScreen() {
+  const plan = getPlanInfo();
+  return `
+    <div class="screen-stack">
+      <div class="section-header">
+        <h2 class="screen-title">${t("nav.subscription")}</h2>
       </div>
-    `;
-  }
+
+      <article class="hero-card">
+        <div class="hero-head">
+          <div>
+            <p class="eyebrow">${t("settings.currentPlan")}</p>
+            <h3 class="section-title">${plan.label}</h3>
+          </div>
+          <span class="small-chip">${formatSignalsPerHour(plan.currentLimit)}</span>
+        </div>
+        ${renderSignalLimitOptions()}
+      </article>
+
+      <article class="subscription-card">
+        <div class="subscription-head">
+          <div>
+            <p class="eyebrow">${t("settings.tiersTitle")}</p>
+            <h3 class="settings-title">${t("settings.subscription")}</h3>
+          </div>
+        </div>
+        <div class="tier-grid">
+          <article class="tier-card ${plan.plus ? "active" : ""}">
+            <span class="plan-badge">${t("settings.plus")}</span>
+            <strong>${t("settings.plusTrial")}</strong>
+            <p class="helper-text">${t("settings.plusPerk")}</p>
+            ${!plan.plus ? `<button class="primary-button" data-action="buy-plus" type="button">${t("settings.plusTrial")}</button>` : `<span class="small-chip">${t("settings.plus")}</span>`}
+          </article>
+          <article class="tier-card">
+            <span class="plan-badge">${t("settings.eliteLabel")}</span>
+            <strong>${t("settings.buyElite")}</strong>
+            <p class="helper-text">${t("settings.elitePerk")}</p>
+            <button class="ghost-button" data-action="buy-elite" type="button">${t("settings.buyElite")}</button>
+          </article>
+        </div>
+      </article>
+
+      ${
+        !plan.plus
+          ? `
+              <article class="settings-card compact-card">
+                <div class="settings-head compact-section-head">
+                  <h3 class="settings-title">${t("settings.promoShort")}</h3>
+                </div>
+                <form id="promoForm" class="promo-form">
+                  <label class="field">
+                    <span>${t("settings.promoTitle")}</span>
+                    <input name="code" type="text" placeholder="${t("settings.promoPlaceholder")}" autocomplete="off" required />
+                  </label>
+                  <button class="primary-button" type="submit">${t("settings.promoButton")}</button>
+                </form>
+              </article>
+            `
+          : ""
+      }
+    </div>
+  `;
+}
 
 function renderPaymentSheet() {
   return "";
@@ -2730,6 +2918,7 @@ function renderNav() {
       <button class="nav-item ${state.activeTab === "home" ? "active" : ""}" data-action="set-tab" data-tab="home" type="button">${t("nav.home")}</button>
       <button class="nav-item ${state.activeTab === "market" ? "active" : ""}" data-action="set-tab" data-tab="market" type="button">${t("nav.market")}</button>
       <button class="nav-item ${state.activeTab === "filters" ? "active" : ""}" data-action="set-tab" data-tab="filters" type="button">${t("nav.filters")}</button>
+      <button class="nav-item ${state.activeTab === "subscription" ? "active" : ""}" data-action="set-tab" data-tab="subscription" type="button">${t("nav.subscription")}</button>
       <button class="nav-item ${state.activeTab === "settings" ? "active" : ""}" data-action="set-tab" data-tab="settings" type="button">${t("nav.settings")}</button>
     </nav>
   `;
@@ -2755,6 +2944,8 @@ function renderApp() {
     ? renderMarketScreen()
     : state.activeTab === "filters"
       ? renderFiltersScreen()
+      : state.activeTab === "subscription"
+        ? renderSubscriptionScreen()
       : state.activeTab === "settings"
         ? renderSettingsScreen()
         : renderHomeScreen();
@@ -2764,9 +2955,10 @@ function renderApp() {
         <main class="screens">${screen}</main>
         ${renderNav()}
         ${state.showSplash ? renderLaunchSplash() : ""}
+        ${state.privacyModalOpen ? renderPrivacyModal() : ""}
       </div>
     `;
-  }
+}
 
 function render() {
   applyDocumentState();
@@ -2803,6 +2995,7 @@ function setActiveTab(nextTab) {
   state.activeTab = nextTab;
   state.navHidden = false;
   state.paymentSheetOpen = false;
+  state.privacyModalOpen = false;
   render();
   const screens = document.querySelector(".screens");
   if (screens) {
@@ -2875,14 +3068,18 @@ function handleClick(event) {
     return;
   }
 
-  if (action === "open-notification-settings") {
-    state.pendingSettingsSection = "notifications";
+  if (action === "open-account-settings") {
     playUiSound("tap");
     setActiveTab("settings");
     return;
   }
 
-  if (action === "open-payment-sheet" || action === "start-trial" || action === "buy-plus") {
+  if (action === "enable-notifications") {
+    void enableNotifications();
+    return;
+  }
+
+  if (action === "open-payment-sheet" || action === "start-trial" || action === "buy-plus" || action === "buy-elite") {
     showSubscriptionPlaceholder();
     return;
   }
@@ -2922,12 +3119,7 @@ function handleClick(event) {
   }
 
   if (action === "toggle-notifications") {
-    void toggleNotifications();
-    return;
-  }
-
-  if (action === "toggle-sounds") {
-    void toggleSounds();
+    void enableNotifications();
     return;
   }
 
@@ -2967,8 +3159,27 @@ function handleClick(event) {
     return;
   }
 
+  if (action === "set-signal-strength") {
+    void setSignalStrengthFilter(String(button.dataset.strength || "all"));
+    return;
+  }
+
   if (action === "clear-avatar") {
     void clearAvatar();
+    return;
+  }
+
+  if (action === "open-privacy-modal") {
+    state.privacyModalOpen = true;
+    playUiSound("tap");
+    render();
+    return;
+  }
+
+  if (action === "close-privacy-modal") {
+    state.privacyModalOpen = false;
+    playUiSound("tap");
+    render();
     return;
   }
 

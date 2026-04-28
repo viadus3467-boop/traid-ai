@@ -4,6 +4,7 @@ import {
   LANGUAGE_CODES,
   normalizeEnabledPairs,
   normalizePreferredSessions,
+  normalizeSignalStrength,
   normalizeWatchlist,
 } from "./preferences.mjs";
 import { publicUser, readDb, updateDb } from "./store.mjs";
@@ -39,6 +40,7 @@ function defaultSettings(overrides = {}) {
     theme: overrides.theme || "dark",
     notificationsEnabled: overrides.notificationsEnabled,
     soundsEnabled: overrides.soundsEnabled,
+    signalStrength: overrides.signalStrength,
     enabledPairs: overrides.enabledPairs,
     preferredSessions: overrides.preferredSessions,
     watchlist: overrides.watchlist,
@@ -110,6 +112,9 @@ function assertCredentials(email, password) {
 
 export async function registerUser(payload) {
   assertCredentials(payload.email, payload.password);
+  if (!payload?.privacyAccepted) {
+    throw new Error("Privacy rules must be accepted.");
+  }
 
   const nextUser = defaultUserPayload(payload);
   const nextSession = createSessionRecord(nextUser.id);
@@ -293,6 +298,10 @@ export async function updateUserSettings(userId, patch) {
 
     if (typeof patch.soundsEnabled === "boolean") {
       user.settings.soundsEnabled = patch.soundsEnabled;
+    }
+
+    if ("signalStrength" in patch) {
+      user.settings.signalStrength = normalizeSignalStrength(patch.signalStrength);
     }
 
     if (typeof patch.signalLimit === "number") {
