@@ -1,6 +1,7 @@
 const STORAGE_KEYS = {
   introSeen: "trade-ai-intro-seen",
   token: "trade-ai-token",
+  userCache: "trade-ai-user-cache",
   language: "trade-ai-language",
   theme: "trade-ai-theme",
   notifications: "trade-ai-notifications",
@@ -8,10 +9,21 @@ const STORAGE_KEYS = {
   signalLimit: "trade-ai-signal-limit",
   apiBase: "trade-ai-api-base",
   tradeCapital: "trade-ai-trade-capital",
+  exchangeProfiles: "trade-ai-exchange-profiles",
+  exchangeSession: "trade-ai-exchange-session",
+  autoTrade: "trade-ai-auto-trade",
+  autoTradeLog: "trade-ai-auto-trade-log",
 };
 
 const API_BASE_URL = String(window.TRADE_AI_API_BASE || localStorage.getItem(STORAGE_KEYS.apiBase) || "").replace(/\/$/, "");
 const LIVE_REFRESH_MS = 60_000;
+const SUPPORTED_EXCHANGES = [
+  { code: "binance", label: "Binance" },
+  { code: "bingx", label: "BingX" },
+  { code: "bybit", label: "Bybit" },
+  { code: "okx", label: "OKX" },
+  { code: "kucoin", label: "KuCoin" },
+];
 
 const translations = {
   ru: {
@@ -739,6 +751,7 @@ translations.en.filtersPage = {
   title: "Filters",
   signalStrength: "Signal strength",
   all: "All",
+  best: "Best only",
   strong: "Strong",
   medium: "Medium",
   weak: "Weak",
@@ -794,6 +807,88 @@ Object.assign(translations.uk.home, {
 Object.assign(translations.ru.actions, { close: "Закрыть" });
 Object.assign(translations.en.actions, { close: "Close" });
 Object.assign(translations.uk.actions, { close: "Закрити" });
+
+Object.assign(translations.ru.filtersPage, { best: "Лучшие" });
+Object.assign(translations.uk.filtersPage, { best: "Найкращі" });
+Object.assign(translations.ru.signal, { best: "Лучшие" });
+Object.assign(translations.en.signal, { best: "Best" });
+Object.assign(translations.uk.signal, { best: "Найкращі" });
+Object.assign(translations.ru.settings, { promoForever: "активирован навсегда" });
+Object.assign(translations.en.settings, { promoForever: "activated forever" });
+Object.assign(translations.uk.settings, { promoForever: "активовано назавжди" });
+
+Object.assign(translations.ru.settings, {
+  manageSubscription: "Открыть подписки",
+  notificationsLive: "Уведомления можно включать и выключать в любой момент.",
+  manageExchange: "Подключить биржу",
+  exchangeConnectedHint: "Ключи живут только в текущей сессии браузера и не отправляются на наш сервер.",
+  autoEntryOn: "Автовход включен",
+  autoEntryOff: "Автовход выключен",
+  autoEntryEnabled: "Автовход включен.",
+  autoEntryDisabled: "Автовход выключен.",
+  autoEntryReady: "план входа создан",
+  autoEntryLocked: "Автовход доступен только для PLUS и выше.",
+  exchangeConnected: "биржа подключена",
+  exchangeRemoved: "Биржа отключена.",
+  exchangeInvalid: "Введите API key и secret для выбранной биржи.",
+  exchangePassphrase: "Passphrase / Memo",
+  disconnectExchange: "Отключить",
+  useForAutoEntry: "Для автовхода",
+  connectedShort: "подключено",
+  noConnectionsShort: "нет биржи",
+  adminPerk: "Максимальный лимит сигналов, внутренние тестовые функции и локальный автовход по лучшим сетапам.",
+  promoTitle: "Промокод доступа",
+  promoButton: "Активировать",
+  promoPlaceholder: "Введите промокод",
+});
+Object.assign(translations.en.settings, {
+  manageSubscription: "Open plans",
+  notificationsLive: "Notifications can be enabled or disabled at any time.",
+  manageExchange: "Connect exchange",
+  exchangeConnectedHint: "Keys live only in the current browser session and never reach our server.",
+  autoEntryOn: "Auto-entry on",
+  autoEntryOff: "Auto-entry off",
+  autoEntryEnabled: "Auto-entry enabled.",
+  autoEntryDisabled: "Auto-entry disabled.",
+  autoEntryReady: "entry plan created",
+  autoEntryLocked: "Auto-entry is available only on PLUS and higher plans.",
+  exchangeConnected: "exchange connected",
+  exchangeRemoved: "Exchange disconnected.",
+  exchangeInvalid: "Enter an API key and secret for the selected exchange.",
+  exchangePassphrase: "Passphrase / Memo",
+  disconnectExchange: "Disconnect",
+  useForAutoEntry: "Use for auto-entry",
+  connectedShort: "connected",
+  noConnectionsShort: "no exchange",
+  adminPerk: "Maximum signal cap, internal testing features, and local auto-entry for the cleanest setups.",
+  promoTitle: "Access promo code",
+  promoButton: "Activate",
+  promoPlaceholder: "Enter promo code",
+});
+Object.assign(translations.uk.settings, {
+  manageSubscription: "Відкрити підписки",
+  notificationsLive: "Сповіщення можна вмикати й вимикати будь-коли.",
+  manageExchange: "Підключити біржу",
+  exchangeConnectedHint: "Ключі живуть лише в поточній сесії браузера й не надсилаються на наш сервер.",
+  autoEntryOn: "Автовхід увімкнено",
+  autoEntryOff: "Автовхід вимкнено",
+  autoEntryEnabled: "Автовхід увімкнено.",
+  autoEntryDisabled: "Автовхід вимкнено.",
+  autoEntryReady: "план входу створено",
+  autoEntryLocked: "Автовхід доступний лише для PLUS і вище.",
+  exchangeConnected: "біржу підключено",
+  exchangeRemoved: "Біржу відключено.",
+  exchangeInvalid: "Введіть API key і secret для вибраної біржі.",
+  exchangePassphrase: "Passphrase / Memo",
+  disconnectExchange: "Відключити",
+  useForAutoEntry: "Для автовходу",
+  connectedShort: "підключено",
+  noConnectionsShort: "нема біржі",
+  adminPerk: "Максимальний ліміт сигналів, внутрішні тестові функції та локальний автовхід по найкращих сетапах.",
+  promoTitle: "Промокод доступу",
+  promoButton: "Активувати",
+  promoPlaceholder: "Введіть промокод",
+});
 
 const TRANSLATION_FALLBACK = "en";
 const LANGUAGE_OPTIONS = [
@@ -933,9 +1028,15 @@ const state = {
   lastSync: 0,
   lastSignalIds: new Set(),
   privacyModalOpen: false,
+  planPanelOpen: false,
+  exchangeModalOpen: false,
   cryptoInvoice: null,
   paymentSheetOpen: false,
   tradeCapital: Number(localStorage.getItem(STORAGE_KEYS.tradeCapital) || 250),
+  exchangeProfiles: [],
+  exchangeSession: {},
+  autoTrade: null,
+  autoTradeLog: [],
 };
 
 const appRoot = document.getElementById("appRoot");
@@ -949,6 +1050,114 @@ let serviceWorkerRegistrationPromise = null;
 
 function isStandaloneMode() {
   return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+
+function getStoredUserCache() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.userCache);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function getStoredExchangeProfiles() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.exchangeProfiles);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function getStoredExchangeSession() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEYS.exchangeSession);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function getStoredAutoTrade() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.autoTrade);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed || typeof parsed !== "object") {
+      return {
+        enabled: false,
+        strength: "best",
+        connectionId: "",
+      };
+    }
+
+    return {
+      enabled: Boolean(parsed.enabled),
+      strength: ["best", "strong"].includes(parsed.strength) ? parsed.strength : "best",
+      connectionId: typeof parsed.connectionId === "string" ? parsed.connectionId : "",
+    };
+  } catch {
+    return {
+      enabled: false,
+      strength: "best",
+      connectionId: "",
+    };
+  }
+}
+
+function getStoredAutoTradeLog() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.autoTradeLog);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistExchangeState() {
+  localStorage.setItem(STORAGE_KEYS.exchangeProfiles, JSON.stringify(state.exchangeProfiles));
+  sessionStorage.setItem(STORAGE_KEYS.exchangeSession, JSON.stringify(state.exchangeSession));
+  localStorage.setItem(STORAGE_KEYS.autoTrade, JSON.stringify(state.autoTrade));
+  localStorage.setItem(STORAGE_KEYS.autoTradeLog, JSON.stringify(state.autoTradeLog.slice(0, 30)));
+}
+
+state.exchangeProfiles = getStoredExchangeProfiles();
+state.exchangeSession = getStoredExchangeSession();
+state.autoTrade = getStoredAutoTrade();
+state.autoTradeLog = getStoredAutoTradeLog();
+
+function getPlanMaxSignals(plan) {
+  if (plan === "admin") {
+    return 40;
+  }
+  if (plan === "elite") {
+    return 20;
+  }
+  if (plan === "plus") {
+    return 10;
+  }
+  return 2;
+}
+
+function isPlusOrHigher(plan = state.user?.plan) {
+  return plan === "plus" || plan === "elite" || plan === "admin";
+}
+
+function isEliteOrHigher(plan = state.user?.plan) {
+  return plan === "elite" || plan === "admin";
+}
+
+function getPlanDisplayLabel(plan = state.user?.plan) {
+  if (plan === "plus") {
+    return t("settings.plus");
+  }
+  if (plan === "elite" || plan === "admin") {
+    return t("settings.eliteLabel");
+  }
+  return t("settings.free");
 }
 
 function renderInstallCard() {
@@ -1157,9 +1366,10 @@ function syncUserToState(user) {
   localStorage.setItem(STORAGE_KEYS.notifications, String(state.notificationsEnabled));
   localStorage.setItem(STORAGE_KEYS.sounds, "true");
   localStorage.setItem(STORAGE_KEYS.signalLimit, String(getSignalLimit()));
+  localStorage.setItem(STORAGE_KEYS.userCache, JSON.stringify(user));
 }
 
-function clearSessionState() {
+function clearSessionState(options = {}) {
   state.user = null;
   state.token = "";
   state.authMode = "login";
@@ -1173,9 +1383,15 @@ function clearSessionState() {
   state.dataLoaded = false;
   state.lastSignalIds = new Set();
   state.privacyModalOpen = false;
+  state.planPanelOpen = false;
+  state.exchangeModalOpen = false;
   state.cryptoInvoice = null;
   state.paymentSheetOpen = false;
   localStorage.removeItem(STORAGE_KEYS.token);
+  if (!options.keepCache) {
+    localStorage.removeItem(STORAGE_KEYS.userCache);
+    localStorage.removeItem(STORAGE_KEYS.signalLimit);
+  }
 }
 
 async function apiRequest(path, options = {}) {
@@ -1348,7 +1564,7 @@ function getPreferredSessions() {
 
 function getSignalStrengthFilter() {
   const value = String(state.user?.settings?.signalStrength || "all").trim().toLowerCase();
-  return ["all", "strong", "medium", "weak"].includes(value) ? value : "all";
+  return ["all", "best", "strong", "medium", "weak"].includes(value) ? value : "all";
 }
 
 function matchesSignalStrength(signal, strength = getSignalStrengthFilter()) {
@@ -1464,6 +1680,38 @@ function getAvatarMarkup() {
   return `<span class="avatar-fallback">${(state.user?.name || "T").trim().charAt(0).toUpperCase()}</span>`;
 }
 
+function getExchangeLabel(code) {
+  return SUPPORTED_EXCHANGES.find((entry) => entry.code === code)?.label || String(code || "").toUpperCase();
+}
+
+function maskApiKeyTail(tail) {
+  if (!tail) {
+    return "••••";
+  }
+  return `••••${String(tail).slice(-4)}`;
+}
+
+function getAutoTradeConnections() {
+  return Array.isArray(state.exchangeProfiles) ? state.exchangeProfiles : [];
+}
+
+function getSelectedAutoTradeConnection() {
+  const connections = getAutoTradeConnections();
+  if (!connections.length) {
+    return null;
+  }
+
+  if (state.autoTrade?.connectionId) {
+    return connections.find((entry) => entry.id === state.autoTrade.connectionId) || connections[0];
+  }
+
+  return connections[0];
+}
+
+function hasLiveExchangeSession(connectionId) {
+  return Boolean(connectionId && state.exchangeSession?.[connectionId]?.apiKey && state.exchangeSession?.[connectionId]?.apiSecret);
+}
+
 function buildRiskPlan(entry, analytics, signal, pairLabel) {
   const capital = getTradeCapital();
   const entryPrice = Number(String(entry).replace(/,/g, ""));
@@ -1506,6 +1754,79 @@ function buildRiskPlan(entry, analytics, signal, pairLabel) {
   };
 }
 
+function canUseAutoTrade() {
+  return isPlusOrHigher();
+}
+
+function shouldAutoTradeSignal(signal) {
+  if (!canUseAutoTrade() || !state.autoTrade?.enabled) {
+    return false;
+  }
+
+  const requiredStrength = state.autoTrade?.strength || "best";
+  if (!matchesSignalStrength(signal, requiredStrength)) {
+    return false;
+  }
+
+  if (state.autoTrade?.connectionId && !getAutoTradeConnections().some((entry) => entry.id === state.autoTrade.connectionId)) {
+    return false;
+  }
+
+  const connection = getSelectedAutoTradeConnection();
+  return Boolean(connection && hasLiveExchangeSession(connection.id));
+}
+
+function persistAutoTradeLog() {
+  localStorage.setItem(STORAGE_KEYS.autoTradeLog, JSON.stringify(state.autoTradeLog.slice(0, 30)));
+}
+
+function queueAutoTradePlan(signal) {
+  if (!shouldAutoTradeSignal(signal)) {
+    return;
+  }
+
+  if (state.autoTradeLog.some((entry) => entry.signalId === signal.id)) {
+    return;
+  }
+
+  const connection = getSelectedAutoTradeConnection();
+  if (!connection) {
+    return;
+  }
+
+  const analytics = getPairAnalytics(signal.pair);
+  const plan = buildRiskPlan(signal.entry, analytics, signal, signal.pair);
+  if (!plan) {
+    return;
+  }
+
+  const orderPlan = {
+    id: `${signal.id}-auto`,
+    signalId: signal.id,
+    exchange: connection.exchange,
+    exchangeLabel: getExchangeLabel(connection.exchange),
+    pair: signal.pair,
+    side: signal.side,
+    confidence: signal.confidence,
+    entry: signal.entry,
+    stopLoss: formatNumber(plan.stop, signal.pair.includes("USDT") ? 2 : 4),
+    takeProfit: formatNumber(plan.target, signal.pair.includes("USDT") ? 2 : 4),
+    size: Number(plan.positionSize.toFixed(signal.pair.includes("USDT") ? 5 : 2)),
+    riskAmount: Number(plan.riskAmount.toFixed(2)),
+    createdAt: new Date().toISOString(),
+    mode: "local",
+    status: "armed",
+  };
+
+  state.autoTradeLog = [orderPlan, ...state.autoTradeLog].slice(0, 30);
+  persistAutoTradeLog();
+  showToast(
+    t("appName"),
+    `${connection.exchangeLabel} - ${signal.pair} - ${signal.side.toUpperCase()} - ${t("settings.autoEntryReady")}`,
+    "long",
+  );
+}
+
 function renderSparkline(points = []) {
   if (!Array.isArray(points) || points.length < 2) {
     return "";
@@ -1534,25 +1855,32 @@ function renderSparkline(points = []) {
 function getSignalLimit() {
   if (state.user?.signalLimit) return Number(state.user.signalLimit);
   const fallback = Number(localStorage.getItem(STORAGE_KEYS.signalLimit) || 2);
-  const max = state.user?.plan === "plus" ? 10 : 2;
+  const max = getPlanMaxSignals(state.user?.plan);
   return Math.max(1, Math.min(max, fallback));
 }
 
 function getPlanInfo() {
-  const plus = state.user?.plan === "plus";
-  const maxLimit = plus ? 10 : 2;
+  const plan = state.user?.plan || "free";
+  const plus = isPlusOrHigher(plan);
+  const elite = isEliteOrHigher(plan);
+  const admin = plan === "admin";
+  const maxLimit = getPlanMaxSignals(plan);
   return {
+    plan,
     plus,
-    label: plus ? t("settings.plus") : t("settings.free"),
+    elite,
+    admin,
+    label: getPlanDisplayLabel(plan),
     maxLimit,
     currentLimit: getSignalLimit(),
-    copy: plus ? t("home.plusCopy") : formatSignalsPerHour(2),
+    copy: admin ? t("settings.adminPerk") : elite ? t("settings.elitePerk") : plus ? t("home.plusCopy") : formatSignalsPerHour(2),
   };
 }
 
 function getSignalLevel(signal) {
-  if (signal.confidence >= 88) return { key: "strong", label: t("signal.strong") };
-  if (signal.confidence >= 76) return { key: "medium", label: t("signal.medium") };
+  if (signal.confidence >= 92) return { key: "best", label: t("signal.best") };
+  if (signal.confidence >= 86) return { key: "strong", label: t("signal.strong") };
+  if (signal.confidence >= 74) return { key: "medium", label: t("signal.medium") };
   return { key: "weak", label: t("signal.weak") };
 }
 
@@ -1635,7 +1963,7 @@ function showSignalNotification(signal) {
   }
 
   const level = getSignalLevel(signal);
-  const badge = level.key === "strong" ? "🟢" : level.key === "medium" ? "🟡" : "🔴";
+  const badge = level.key === "best" ? "✨" : level.key === "strong" ? "🟢" : level.key === "medium" ? "🟡" : "🔴";
   const title = `${badge} ${level.label} • ${signal.pair}`;
   const body = `${t(`signal.${signal.side}`)} • ${t("signal.entry")}: ${signal.entry} • TP: ${signal.takeProfit} • SL: ${signal.stopLoss}`;
 
@@ -1705,6 +2033,9 @@ async function refreshMarketData(force = false) {
         playUiSound("signal");
         showSignalNotification(newSignal);
       }
+      if (newSignal) {
+        queueAutoTradePlan(newSignal);
+      }
 
       render();
     } catch (error) {
@@ -1751,12 +2082,18 @@ async function savePreferences(patch, toastKey) {
 }
 
 async function enableNotifications() {
-  if (state.notificationsEnabled) {
+  if (!supportsWebPush()) {
+    showToast(t("appName"), t("misc.pushUnsupported"), "info");
     return;
   }
 
-  if (!supportsWebPush()) {
-    showToast(t("appName"), t("misc.pushUnsupported"), "info");
+  if (state.notificationsEnabled && Notification.permission === "granted") {
+    try {
+      await subscribeCurrentDeviceToPush();
+      showToast(t("appName"), t("misc.pushLinked"), "info");
+    } catch (error) {
+      showToast(t("appName"), error instanceof Error ? error.message : t("misc.pushUnavailable"), "info");
+    }
     return;
   }
 
@@ -1778,6 +2115,23 @@ async function enableNotifications() {
   } catch (error) {
     showToast(t("appName"), error instanceof Error ? error.message : t("misc.pushUnavailable"), "info");
   }
+}
+
+async function disableNotifications() {
+  await savePreferences({ notificationsEnabled: false }, "misc.notificationsOff");
+  try {
+    await unsubscribeCurrentDeviceFromPush();
+  } catch {
+    // ignore unsubscribe errors, local preference has already been updated
+  }
+}
+
+async function toggleNotifications() {
+  if (state.notificationsEnabled) {
+    await disableNotifications();
+    return;
+  }
+  await enableNotifications();
 }
 
 async function sendTestPush() {
@@ -1902,7 +2256,10 @@ function saveTradeCapital(value) {
 }
 
 function showSubscriptionPlaceholder() {
-  showToast(t("appName"), t("misc.buySoon"), "info");
+  state.planPanelOpen = true;
+  state.exchangeModalOpen = false;
+  playUiSound("tap");
+  render();
 }
 
 function showSupportPlaceholder() {
@@ -1910,11 +2267,17 @@ function showSupportPlaceholder() {
 }
 
 function showExchangePlaceholder() {
-  showToast(t("appName"), t("misc.exchangeSoon"), "info");
+  state.planPanelOpen = false;
+  state.exchangeModalOpen = true;
+  playUiSound("tap");
+  render();
 }
 
 function showAutoEntryPlaceholder() {
-  showToast(t("appName"), t("misc.autoEntrySoon"), "info");
+  state.planPanelOpen = false;
+  state.exchangeModalOpen = true;
+  playUiSound("tap");
+  render();
 }
 
 async function activatePromoCode(form) {
@@ -1928,13 +2291,77 @@ async function activatePromoCode(form) {
     });
     if (payload.user) {
       syncUserToState(payload.user);
+      state.planPanelOpen = false;
       render();
       await refreshMarketData(true);
+      const nextPlanLabel = getPlanDisplayLabel(payload.user.plan);
+      showToast(t("appName"), `${nextPlanLabel} • ${t("settings.promoForever")}`, "long");
+      return;
     }
-    showToast(t("appName"), t("misc.promoActivated"), "long");
   } catch (error) {
     showToast(t("appName"), error?.message === "Invalid promo code." ? t("misc.promoInvalid") : (error instanceof Error ? error.message : t("misc.apiError")), "info");
   }
+}
+
+function updateAutoTradeConfig(patch = {}) {
+  state.autoTrade = {
+    ...state.autoTrade,
+    ...patch,
+  };
+  persistExchangeState();
+  render();
+}
+
+function removeExchangeConnection(connectionId) {
+  state.exchangeProfiles = getAutoTradeConnections().filter((entry) => entry.id !== connectionId);
+  if (state.exchangeSession?.[connectionId]) {
+    delete state.exchangeSession[connectionId];
+  }
+  if (state.autoTrade?.connectionId === connectionId) {
+    state.autoTrade.connectionId = state.exchangeProfiles[0]?.id || "";
+  }
+  persistExchangeState();
+  showToast(t("appName"), t("settings.exchangeRemoved"), "info");
+  render();
+}
+
+function connectExchange(form) {
+  const formData = new FormData(form);
+  const exchange = String(formData.get("exchange") || "").trim().toLowerCase();
+  const apiKey = String(formData.get("apiKey") || "").trim();
+  const apiSecret = String(formData.get("apiSecret") || "").trim();
+  const passphrase = String(formData.get("passphrase") || "").trim();
+
+  if (!SUPPORTED_EXCHANGES.some((entry) => entry.code === exchange) || !apiKey || !apiSecret) {
+    showToast(t("appName"), t("settings.exchangeInvalid"), "info");
+    return;
+  }
+
+  const existing = getAutoTradeConnections().find((entry) => entry.exchange === exchange);
+  const connectionId = existing?.id || `${exchange}-${Date.now()}`;
+  const exchangeLabel = getExchangeLabel(exchange);
+  const metadata = {
+    id: connectionId,
+    exchange,
+    exchangeLabel,
+    apiKeyTail: apiKey.slice(-4),
+    connectedAt: new Date().toISOString(),
+  };
+
+  state.exchangeProfiles = [...getAutoTradeConnections().filter((entry) => entry.id !== connectionId), metadata];
+  state.exchangeSession = {
+    ...state.exchangeSession,
+    [connectionId]: {
+      apiKey,
+      apiSecret,
+      passphrase,
+    },
+  };
+  state.autoTrade.connectionId = state.autoTrade.connectionId || connectionId;
+  persistExchangeState();
+  showToast(t("appName"), `${exchangeLabel} • ${t("settings.exchangeConnected")}`, "info");
+  form.reset();
+  render();
 }
 
 async function startCheckout(provider) {
@@ -2011,7 +2438,13 @@ async function loadSession() {
       clearSessionState();
     }
   } catch {
-    clearSessionState();
+    const cachedUser = state.token ? getStoredUserCache() : null;
+    if (cachedUser) {
+      syncUserToState(cachedUser);
+      state.showSplash = false;
+    } else {
+      clearSessionState();
+    }
   } finally {
     state.sessionChecked = true;
     render();
@@ -2234,7 +2667,6 @@ function renderTopbar() {
   if (state.activeTab !== "home") {
     return "";
   }
-  const plan = getPlanInfo();
   return `
     <header class="topbar">
       <button class="topbar-avatar" data-action="open-account-settings" type="button" aria-label="${t("settings.account")}">
@@ -2244,8 +2676,7 @@ function renderTopbar() {
         <h1 class="topbar-title">${t("appName")}</h1>
       </div>
       <div class="topbar-side">
-        <span class="plan-badge">${plan.label}</span>
-        <span class="small-chip">${formatSignalsPerHour(plan.currentLimit)}</span>
+        <span class="small-chip">${getMoodLabel()}</span>
       </div>
     </header>
   `;
@@ -2274,7 +2705,7 @@ function renderSessionFilterCard() {
 
 function renderSignalStrengthCard() {
   const current = getSignalStrengthFilter();
-  const options = ["all", "strong", "medium", "weak"];
+  const options = ["all", "best", "strong", "medium", "weak"];
   return `
     <article class="settings-card compact-card">
       <div class="settings-head compact-section-head">
@@ -2291,6 +2722,25 @@ function renderSignalStrengthCard() {
         `).join("")}
       </div>
     </article>
+  `;
+}
+
+function renderPlanBanner() {
+  const plan = getPlanInfo();
+  const cta = plan.elite
+    ? t("settings.eliteLabel")
+    : plan.plus
+      ? t("settings.buyElite")
+      : t("settings.plusTrial");
+
+  return `
+    <button class="plan-banner" data-action="open-plan-panel" type="button">
+      <span class="plan-banner-copy">
+        <strong>${plan.label}</strong>
+        <span>${formatSignalsPerHour(plan.currentLimit)}</span>
+      </span>
+      <span class="plan-banner-cta">${cta}</span>
+    </button>
   `;
 }
 
@@ -2640,7 +3090,7 @@ function renderMarketScreen() {
         <h2 class="screen-title">${t("market.title")}</h2>
       </div>
 
-      <article class="hero-card">
+      <article class="hero-card market-toolbar-card">
         <div class="hero-head">
           <div>
             <p class="eyebrow">${t("market.mood")}</p>
@@ -2662,26 +3112,20 @@ function renderMarketScreen() {
 
       ${renderMarketDetailCard()}
 
-      <div class="market-list">
+      <div class="market-chip-list">
         ${market
           .map(
             (pair) => `
-              <article class="market-card">
-                <div class="market-head">
-                  <div class="market-pair">${pair.pair}</div>
-                  <div class="market-price">
-                    <strong>${pair.price}</strong>
-                    <span class="status-pill ${pair.status}">${getStatusLabel(pair.status)}</span>
-                  </div>
-                </div>
-                <div class="market-grid">
-                  <div class="market-meta-box"><span class="meta-label">${t("market.trend")}</span><strong class="meta-value">${localizedText(pair.trend) || pair.trend}</strong></div>
-                  <div class="market-meta-box"><span class="meta-label">${t("market.volatility")}</span><strong class="meta-value">${localizedText(pair.volatility) || pair.volatility}</strong></div>
-                  <div class="market-meta-box"><span class="meta-label">${t("market.status")}</span><strong class="meta-value">${getStatusLabel(pair.status)}</strong></div>
-                  <div class="market-meta-box"><span class="meta-label">${t("market.price")}</span><strong class="meta-value">${pair.price}</strong></div>
-                </div>
-                <button class="ghost-button pair-button" data-action="open-pair-market" data-pair="${pair.pair}" type="button">${t("market.watchPair")}</button>
-              </article>
+              <button class="market-compact-card ${state.selectedPair === pair.pair ? "active" : ""}" data-action="open-pair-market" data-pair="${pair.pair}" type="button">
+                <span class="market-compact-main">
+                  <strong class="market-compact-pair">${pair.pair}</strong>
+                  <span class="market-compact-price">${pair.price}</span>
+                </span>
+                <span class="market-compact-side">
+                  <span class="status-pill ${pair.status}">${getStatusLabel(pair.status)}</span>
+                  <span class="market-compact-meta">${localizedText(pair.trend) || pair.trend}</span>
+                </span>
+              </button>
             `,
           )
           .join("")}
@@ -2708,8 +3152,8 @@ function renderFiltersScreen() {
 }
 
 function renderSignalLimitOptions() {
-  const max = state.user?.plan === "plus" ? 10 : 2;
-  const options = max === 10 ? [2, 4, 6, 8, 10] : [1, 2];
+  const max = getPlanMaxSignals(state.user?.plan);
+  const options = max >= 40 ? [5, 10, 20, 30, 40] : max >= 20 ? [2, 5, 10, 15, 20] : max >= 10 ? [2, 4, 6, 8, 10] : [1, 2];
   const current = getSignalLimit();
   return `
     <div class="switcher signal-limit-picker">
@@ -2730,6 +3174,11 @@ function renderSettingsScreen() {
   const plan = getPlanInfo();
   const activeLanguage = resolveLanguageKey();
   const hasAvatar = Boolean(state.user?.settings?.avatarDataUrl);
+  const notificationsAction = state.notificationsEnabled ? t("actions.disable") : t("actions.enable");
+  const notificationStatus = state.notificationsEnabled ? t("settings.on") : t("settings.off");
+  const connections = getAutoTradeConnections();
+  const autoTradeConnection = getSelectedAutoTradeConnection();
+  const autoTradeEnabled = Boolean(state.autoTrade?.enabled) && Boolean(autoTradeConnection && hasLiveExchangeSession(autoTradeConnection.id));
 
   return `
     <div class="screen-stack">
@@ -2745,11 +3194,11 @@ function renderSettingsScreen() {
               <p class="eyebrow">${t("settings.profileTitle")}</p>
               <h3 class="account-name">${state.user?.name || "-"}</h3>
               <p class="account-copy">${state.user?.email || ""}</p>
+              <div class="account-meta-inline">
+                <span class="plan-badge">${plan.label}</span>
+                <span class="small-chip">${formatSignalsPerHour(plan.currentLimit)}</span>
+              </div>
             </div>
-          </div>
-          <div class="topbar-side">
-            <span class="plan-badge">${plan.label}</span>
-            <span class="small-chip">${formatSignalsPerHour(plan.currentLimit)}</span>
           </div>
         </div>
         <div class="subscription-actions">
@@ -2757,6 +3206,18 @@ function renderSettingsScreen() {
           ${hasAvatar ? `<button class="action-button" data-action="clear-avatar" type="button">${t("settings.clearAvatar")}</button>` : ""}
         </div>
         <input id="avatarInput" class="hidden-input" type="file" accept="image/png,image/jpeg,image/webp" />
+      </article>
+
+      <article class="settings-card" data-settings-section="subscription">
+        <div class="settings-head">
+          <div>
+            <p class="eyebrow">${t("settings.subscription")}</p>
+            <h3 class="settings-title">${plan.label}</h3>
+          </div>
+          <span class="small-chip">${formatSignalsPerHour(plan.currentLimit)}</span>
+        </div>
+        <p class="helper-text">${plan.copy}</p>
+        <button class="primary-button" data-action="open-plan-panel" type="button">${t("settings.manageSubscription")}</button>
       </article>
 
       <article class="settings-card">
@@ -2793,10 +3254,11 @@ function renderSettingsScreen() {
         <div class="settings-list">
           <div class="settings-row">
             <span>${t("settings.notifications")}</span>
-            <span class="small-chip">${state.notificationsEnabled ? t("settings.on") : t("settings.off")}</span>
+            <span class="small-chip">${notificationStatus}</span>
           </div>
         </div>
         <p class="helper-text">${t("settings.notificationsLive")}</p>
+        <button class="action-button" data-action="toggle-notifications" type="button">${notificationsAction}</button>
       </article>
 
       <article class="settings-card">
@@ -2805,14 +3267,26 @@ function renderSettingsScreen() {
             <p class="eyebrow">${t("settings.exchangeTitle")}</p>
             <h3 class="settings-title">${t("settings.exchangeTitle")}</h3>
           </div>
+          <span class="small-chip">${connections.length}</span>
         </div>
-        <p class="helper-text">${t("settings.exchangeHint")}</p>
+        <p class="helper-text">${connections.length ? t("settings.exchangeConnectedHint") : t("settings.exchangeHint")}</p>
         <p class="helper-text">${t("settings.exchangeSecurity")}</p>
+        ${
+          connections.length
+            ? `
+              <div class="compact-chip-list">
+                ${connections.map((entry) => `
+                  <span class="small-chip">${entry.exchangeLabel} ${maskApiKeyTail(entry.apiKeyTail)}</span>
+                `).join("")}
+              </div>
+            `
+            : ""
+        }
         <div class="subscription-actions">
-          <button class="primary-button" data-action="show-exchange-info" type="button">${t("settings.connectExchange")}</button>
-          <button class="action-button" data-action="show-auto-entry-info" type="button">${t("settings.autoEntry")}</button>
+          <button class="primary-button" data-action="show-exchange-info" type="button">${t("settings.manageExchange")}</button>
+          <span class="small-chip ${autoTradeEnabled ? "chip-live" : ""}">${autoTradeEnabled ? t("settings.autoEntryOn") : t("settings.autoEntryOff")}</span>
         </div>
-        <p class="helper-text">${t("settings.autoEntryHint")}</p>
+        <p class="helper-text">${autoTradeEnabled && autoTradeConnection ? `${t("settings.autoEntry")} • ${autoTradeConnection.exchangeLabel} • ${t(`filtersPage.${state.autoTrade?.strength || "best"}`)}` : t("settings.autoEntryHint")}</p>
       </article>
 
       <article class="settings-card">
@@ -2844,66 +3318,149 @@ function renderSettingsScreen() {
   `;
 }
 
-function renderSubscriptionScreen() {
+function renderPlanPanel() {
   const plan = getPlanInfo();
   return `
-    <div class="screen-stack">
-      <div class="section-header">
-        <h2 class="screen-title">${t("nav.subscription")}</h2>
-      </div>
-
-      <article class="hero-card">
-        <div class="hero-head">
+    <div class="privacy-modal-backdrop plan-modal-backdrop">
+      <article class="privacy-modal plan-modal">
+        <div class="privacy-modal-head">
           <div>
             <p class="eyebrow">${t("settings.currentPlan")}</p>
-            <h3 class="section-title">${plan.label}</h3>
+            <h3 class="settings-title">${plan.label}</h3>
           </div>
-          <span class="small-chip">${formatSignalsPerHour(plan.currentLimit)}</span>
+          <button class="ghost-button modal-close-button" data-action="close-plan-panel" type="button">${t("actions.close")}</button>
         </div>
-        ${renderSignalLimitOptions()}
-      </article>
-
-      <article class="subscription-card">
-        <div class="subscription-head">
-          <div>
-            <p class="eyebrow">${t("settings.tiersTitle")}</p>
-            <h3 class="settings-title">${t("settings.subscription")}</h3>
-          </div>
+        <div class="plan-panel-copy">
+          <span class="small-chip">${formatSignalsPerHour(plan.currentLimit)}</span>
+          <p class="helper-text">${plan.copy}</p>
+          ${renderSignalLimitOptions()}
         </div>
         <div class="tier-grid">
-          <article class="tier-card ${plan.plus ? "active" : ""}">
+          <article class="tier-card ${plan.plus && !plan.elite ? "active" : ""}">
             <span class="plan-badge">${t("settings.plus")}</span>
             <strong>${t("settings.plusTrial")}</strong>
             <p class="helper-text">${t("settings.plusPerk")}</p>
             ${!plan.plus ? `<button class="primary-button" data-action="buy-plus" type="button">${t("settings.plusTrial")}</button>` : `<span class="small-chip">${t("settings.plus")}</span>`}
           </article>
-          <article class="tier-card">
+          <article class="tier-card ${plan.elite ? "active" : ""}">
             <span class="plan-badge">${t("settings.eliteLabel")}</span>
             <strong>${t("settings.buyElite")}</strong>
             <p class="helper-text">${t("settings.elitePerk")}</p>
-            <button class="ghost-button" data-action="buy-elite" type="button">${t("settings.buyElite")}</button>
+            ${!plan.elite ? `<button class="ghost-button" data-action="buy-elite" type="button">${t("settings.buyElite")}</button>` : `<span class="small-chip">${t("settings.eliteLabel")}</span>`}
           </article>
         </div>
-      </article>
-
-      ${
-        !plan.plus
-          ? `
-              <article class="settings-card compact-card">
-                <div class="settings-head compact-section-head">
-                  <h3 class="settings-title">${t("settings.promoShort")}</h3>
-                </div>
-                <form id="promoForm" class="promo-form">
+        ${
+          !plan.elite
+            ? `
+                <form id="promoForm" class="promo-form compact-promo-form">
                   <label class="field">
                     <span>${t("settings.promoTitle")}</span>
                     <input name="code" type="text" placeholder="${t("settings.promoPlaceholder")}" autocomplete="off" required />
                   </label>
                   <button class="primary-button" type="submit">${t("settings.promoButton")}</button>
                 </form>
-              </article>
+              `
+            : ""
+        }
+      </article>
+    </div>
+  `;
+}
+
+function renderExchangePanel() {
+  const connections = getAutoTradeConnections();
+  const selectedConnection = getSelectedAutoTradeConnection();
+  const autoTradeEnabled = Boolean(state.autoTrade?.enabled) && Boolean(selectedConnection && hasLiveExchangeSession(selectedConnection.id));
+
+  return `
+    <div class="privacy-modal-backdrop plan-modal-backdrop">
+      <article class="privacy-modal plan-modal">
+        <div class="privacy-modal-head">
+          <div>
+            <p class="eyebrow">${t("settings.exchangeTitle")}</p>
+            <h3 class="settings-title">${t("settings.exchangeTitle")}</h3>
+          </div>
+          <button class="ghost-button modal-close-button" data-action="close-exchange-panel" type="button">${t("actions.close")}</button>
+        </div>
+        <div class="plan-panel-copy">
+          <span class="small-chip">${connections.length ? `${connections.length} ${t("settings.connectedShort")}` : t("settings.noConnectionsShort")}</span>
+          <p class="helper-text">${t("settings.exchangeSecurity")}</p>
+        </div>
+        ${
+          connections.length
+            ? `
+              <div class="connection-list">
+                ${connections.map((entry) => `
+                  <article class="connection-card ${selectedConnection?.id === entry.id ? "active" : ""}">
+                    <div>
+                      <strong>${entry.exchangeLabel}</strong>
+                      <p class="helper-text">${maskApiKeyTail(entry.apiKeyTail)}</p>
+                    </div>
+                    <div class="connection-actions">
+                      <button class="chip-button compact-chip ${state.autoTrade?.connectionId === entry.id ? "active" : ""}" data-action="pick-auto-trade-connection" data-connection-id="${entry.id}" type="button">${t("settings.useForAutoEntry")}</button>
+                      <button class="chip-button compact-chip" data-action="remove-exchange-connection" data-connection-id="${entry.id}" type="button">${t("settings.disconnectExchange")}</button>
+                    </div>
+                  </article>
+                `).join("")}
+              </div>
             `
-          : ""
-      }
+            : `<p class="helper-text">${t("settings.exchangeHint")}</p>`
+        }
+        <div class="settings-card compact-card exchange-inline-card">
+          <div class="settings-head compact-section-head">
+            <h3 class="settings-title">${t("settings.autoEntry")}</h3>
+            <span class="small-chip ${autoTradeEnabled ? "chip-live" : ""}">${autoTradeEnabled ? t("settings.autoEntryOn") : t("settings.autoEntryOff")}</span>
+          </div>
+          <p class="helper-text">${t("settings.autoEntryHint")}</p>
+          <div class="chip-grid">
+            ${["best", "strong"].map((strength) => `
+              <button class="filter-chip ${state.autoTrade?.strength === strength ? "active" : ""}" data-action="set-auto-trade-strength" data-strength="${strength}" type="button">${t(`filtersPage.${strength}`)}</button>
+            `).join("")}
+          </div>
+          <div class="subscription-actions">
+            <button class="primary-button" data-action="toggle-auto-trade" type="button">${autoTradeEnabled ? t("actions.disable") : t("actions.enable")}</button>
+            ${selectedConnection ? `<span class="small-chip">${selectedConnection.exchangeLabel}</span>` : ""}
+          </div>
+        </div>
+        ${
+          state.autoTradeLog.length
+            ? `
+              <div class="connection-list">
+                ${state.autoTradeLog.slice(0, 4).map((entry) => `
+                  <article class="connection-card">
+                    <div>
+                      <strong>${entry.exchangeLabel} • ${entry.pair}</strong>
+                      <p class="helper-text">${entry.side.toUpperCase()} • ${entry.entry} • SL ${entry.stopLoss} • TP ${entry.takeProfit}</p>
+                    </div>
+                    <span class="small-chip">${formatTimestamp(entry.createdAt)}</span>
+                  </article>
+                `).join("")}
+              </div>
+            `
+            : ""
+        }
+        <form id="exchangeConnectForm" class="promo-form compact-promo-form">
+          <label class="field">
+            <span>${t("settings.connectExchange")}</span>
+            <select name="exchange" required>
+              ${SUPPORTED_EXCHANGES.map((entry) => `<option value="${entry.code}">${entry.label}</option>`).join("")}
+            </select>
+          </label>
+          <label class="field">
+            <span>API Key</span>
+            <input name="apiKey" type="text" autocomplete="off" required />
+          </label>
+          <label class="field">
+            <span>API Secret</span>
+            <input name="apiSecret" type="password" autocomplete="new-password" required />
+          </label>
+          <label class="field">
+            <span>${t("settings.exchangePassphrase")}</span>
+            <input name="passphrase" type="password" autocomplete="new-password" />
+          </label>
+          <button class="primary-button" type="submit">${t("settings.connectExchange")}</button>
+        </form>
+      </article>
     </div>
   `;
 }
@@ -2918,7 +3475,6 @@ function renderNav() {
       <button class="nav-item ${state.activeTab === "home" ? "active" : ""}" data-action="set-tab" data-tab="home" type="button">${t("nav.home")}</button>
       <button class="nav-item ${state.activeTab === "market" ? "active" : ""}" data-action="set-tab" data-tab="market" type="button">${t("nav.market")}</button>
       <button class="nav-item ${state.activeTab === "filters" ? "active" : ""}" data-action="set-tab" data-tab="filters" type="button">${t("nav.filters")}</button>
-      <button class="nav-item ${state.activeTab === "subscription" ? "active" : ""}" data-action="set-tab" data-tab="subscription" type="button">${t("nav.subscription")}</button>
       <button class="nav-item ${state.activeTab === "settings" ? "active" : ""}" data-action="set-tab" data-tab="settings" type="button">${t("nav.settings")}</button>
     </nav>
   `;
@@ -2944,8 +3500,6 @@ function renderApp() {
     ? renderMarketScreen()
     : state.activeTab === "filters"
       ? renderFiltersScreen()
-      : state.activeTab === "subscription"
-        ? renderSubscriptionScreen()
       : state.activeTab === "settings"
         ? renderSettingsScreen()
         : renderHomeScreen();
@@ -2956,6 +3510,8 @@ function renderApp() {
         ${renderNav()}
         ${state.showSplash ? renderLaunchSplash() : ""}
         ${state.privacyModalOpen ? renderPrivacyModal() : ""}
+        ${state.planPanelOpen ? renderPlanPanel() : ""}
+        ${state.exchangeModalOpen ? renderExchangePanel() : ""}
       </div>
     `;
 }
@@ -2996,6 +3552,8 @@ function setActiveTab(nextTab) {
   state.navHidden = false;
   state.paymentSheetOpen = false;
   state.privacyModalOpen = false;
+  state.planPanelOpen = false;
+  state.exchangeModalOpen = false;
   render();
   const screens = document.querySelector(".screens");
   if (screens) {
@@ -3074,6 +3632,28 @@ function handleClick(event) {
     return;
   }
 
+  if (action === "open-plan-panel") {
+    state.planPanelOpen = true;
+    state.exchangeModalOpen = false;
+    playUiSound("tap");
+    render();
+    return;
+  }
+
+  if (action === "close-plan-panel") {
+    state.planPanelOpen = false;
+    playUiSound("tap");
+    render();
+    return;
+  }
+
+  if (action === "close-exchange-panel") {
+    state.exchangeModalOpen = false;
+    playUiSound("tap");
+    render();
+    return;
+  }
+
   if (action === "enable-notifications") {
     void enableNotifications();
     return;
@@ -3119,7 +3699,7 @@ function handleClick(event) {
   }
 
   if (action === "toggle-notifications") {
-    void enableNotifications();
+    void toggleNotifications();
     return;
   }
 
@@ -3198,6 +3778,36 @@ function handleClick(event) {
     return;
   }
 
+  if (action === "toggle-auto-trade") {
+    if (!canUseAutoTrade()) {
+      showToast(t("appName"), t("settings.autoEntryLocked"), "info");
+      return;
+    }
+    const selectedConnection = getSelectedAutoTradeConnection();
+    if (!selectedConnection || !hasLiveExchangeSession(selectedConnection.id)) {
+      showToast(t("appName"), t("settings.exchangeInvalid"), "info");
+      return;
+    }
+    updateAutoTradeConfig({ enabled: !state.autoTrade?.enabled });
+    showToast(t("appName"), state.autoTrade?.enabled ? t("settings.autoEntryEnabled") : t("settings.autoEntryDisabled"), "info");
+    return;
+  }
+
+  if (action === "set-auto-trade-strength") {
+    updateAutoTradeConfig({ strength: String(button.dataset.strength || "best") });
+    return;
+  }
+
+  if (action === "pick-auto-trade-connection") {
+    updateAutoTradeConfig({ connectionId: String(button.dataset.connectionId || "") });
+    return;
+  }
+
+  if (action === "remove-exchange-connection") {
+    removeExchangeConnection(String(button.dataset.connectionId || ""));
+    return;
+  }
+
   if (action === "store-billing-info") {
     closePaymentSheet();
     showToast(t("appName"), t("misc.storeBillingInfo"), "info");
@@ -3227,6 +3837,10 @@ function handleSubmit(event) {
   }
   if (event.target.id === "promoForm") {
     void activatePromoCode(event.target);
+    return;
+  }
+  if (event.target.id === "exchangeConnectForm") {
+    connectExchange(event.target);
     return;
   }
   if (event.target.id === "riskPlannerForm") {

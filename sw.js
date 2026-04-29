@@ -1,9 +1,9 @@
-const CACHE_NAME = "trade-ai-v6";
+const CACHE_NAME = "trade-ai-v8";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=20260428b",
-  "./app.js?v=20260428b",
+  "./styles.css?v=20260429a",
+  "./app.js?v=20260429a",
   "./manifest.webmanifest",
   "./assets/logo.png",
   "./assets/icon-maskable-512.png",
