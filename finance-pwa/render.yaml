@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: finora-app
+    runtime: node
+    plan: free
+    rootDir: finance-pwa
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_PATH
+        value: /tmp/finance.sqlite
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: finora-postgres
+          property: connectionString
+
+databases:
+  - name: finora-postgres
+    plan: free
+    postgresMajorVersion: "18"

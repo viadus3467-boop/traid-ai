@@ -1,0 +1,42 @@
+{
+  "name": "finance-pwa",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "iPhone-first family finance tracker PWA with React, Vite, Express, and SQLite persistence.",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "concurrently -k \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:client": "vite",
+    "dev:server": "tsx watch server/index.ts",
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "vite build",
+    "build:server": "tsc -p tsconfig.server.json",
+    "preview": "vite preview",
+    "start": "node dist/server/index.js"
+  },
+  "dependencies": {
+    "@types/pg": "^8.20.0",
+    "express": "^5.1.0",
+    "framer-motion": "^12.23.24",
+    "lucide-react": "^0.511.0",
+    "pg": "^8.21.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.11",
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.0.10",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^5.0.2",
+    "concurrently": "^9.2.0",
+    "tailwindcss": "^4.1.11",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "vite": "^7.0.0"
+  }
+}
