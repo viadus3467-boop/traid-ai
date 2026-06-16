@@ -2,8 +2,10 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import express from "express";
+import { clearCookie, getCookie, setSessionCookie, AUTH_COOKIE_NAME, GOOGLE_STATE_COOKIE_NAME } from "./cookies.js";
 import { ApiError } from "./errors.js";
-import { verifySessionToken } from "./security.js";
+import { GoogleAuth } from "./google-auth.js";
+import { verifyAuthSessionToken, verifyPinSessionToken, createAuthSessionToken } from "./security.js";
 import { SnapshotSync } from "./snapshot-sync.js";
 import { FinanceStore } from "./store.js";
 import { PERIOD_KEYS } from "./constants.js";
@@ -18,7 +20,12 @@ const sessionSecret = process.env.SESSION_SECRET ?? `${databasePath}:finora`;
 const store = new FinanceStore(databasePath, sessionSecret);
 const snapshotSync = new SnapshotSync(process.env.DATABASE_URL);
 await snapshotSync.init(store);
+const googleAuth = new GoogleAuth();
 const app = express();
+
+const SESSION_COOKIE_MAX_AGE = 1000 * 60 * 60 * 24 * 30;
+
+app.set("trust proxy", 1);
 
 function getPeriod(value: unknown): PeriodKey {
   if (typeof value === "string" && PERIOD_KEYS.includes(value as PeriodKey)) {
@@ -36,7 +43,7 @@ function getAnchor(value: unknown): string {
   return todayKey();
 }
 
-function getToken(request: express.Request): string | null {
+function getPinToken(request: express.Request): string | null {
   const authHeader = request.headers.authorization;
   if (authHeader?.startsWith("Bearer ")) {
     return authHeader.slice(7);
@@ -49,13 +56,80 @@ function getToken(request: express.Request): string | null {
   return null;
 }
 
+function getGoogleAuthSession(request: express.Request) {
+  if (!googleAuth.isConfigured()) {
+    return null;
+  }
+
+  const token = getCookie(request, AUTH_COOKIE_NAME);
+  if (!token) {
+    return null;
+  }
+
+  return verifyAuthSessionToken(token, sessionSecret, store.getAuthSessionVersion());
+}
+
+function isPinUnlocked(request: express.Request) {
+  if (!store.hasPinConfigured()) {
+    return true;
+  }
+
+  const token = getPinToken(request);
+  return token ? Boolean(verifyPinSessionToken(token, sessionSecret, store.getSessionPinVersion())) : false;
+}
+
+function getAuthStatusPayload(request: express.Request) {
+  const googleAuthEnabled = googleAuth.isConfigured();
+  const authSession = getGoogleAuthSession(request);
+  const isAuthenticated = !googleAuthEnabled || Boolean(authSession);
+  const pinUnlocked = !isAuthenticated ? false : isPinUnlocked(request);
+
+  return {
+    appName: "Finora",
+    googleAuthEnabled,
+    isAuthenticated,
+    pinUnlocked,
+    hasPin: store.hasPinConfigured(),
+    googleLoginUrl: googleAuthEnabled ? "/api/auth/google/start" : null,
+    user: isAuthenticated ? store.getUserProfile() : null,
+  };
+}
+
+function redirectToApp(request: express.Request, response: express.Response, params?: Record<string, string>) {
+  response.redirect(302, googleAuth.getAppRedirectUrl(request, params));
+}
+
 app.use(express.json({ limit: "4mb" }));
 
 app.use("/api", (request, response, next) => {
-  const publicPaths = new Set(["/health", "/auth/status", "/auth/unlock"]);
+  const googleAuthEnabled = googleAuth.isConfigured();
+  const googleSession = getGoogleAuthSession(request);
 
-  if (publicPaths.has(request.path)) {
+  const alwaysPublicPaths = new Set([
+    "/health",
+    "/auth/status",
+    "/auth/google/start",
+    "/auth/google/callback",
+    "/auth/logout",
+  ]);
+
+  if (alwaysPublicPaths.has(request.path)) {
     next();
+    return;
+  }
+
+  if (request.path === "/auth/unlock") {
+    if (googleAuthEnabled && !googleSession) {
+      response.status(401).json({ message: "Требуется вход через Google." });
+      return;
+    }
+
+    next();
+    return;
+  }
+
+  if (googleAuthEnabled && !googleSession) {
+    response.status(401).json({ message: "Требуется вход через Google." });
     return;
   }
 
@@ -64,12 +138,7 @@ app.use("/api", (request, response, next) => {
     return;
   }
 
-  const token = getToken(request);
-  const isValid = token
-    ? Boolean(verifySessionToken(token, sessionSecret, store.getSessionPinVersion()))
-    : false;
-
-  if (!isValid) {
+  if (!isPinUnlocked(request)) {
     response.status(401).json({ message: "Требуется PIN-код." });
     return;
   }
@@ -81,11 +150,68 @@ app.get("/api/health", (_request, response) => {
   response.json({ ok: true, appName: "Finora" });
 });
 
-app.get("/api/auth/status", (_request, response) => {
-  response.json({
-    appName: "Finora",
-    hasPin: store.hasPinConfigured(),
-  });
+app.get("/api/auth/status", (request, response) => {
+  response.json(getAuthStatusPayload(request));
+});
+
+app.get("/api/auth/google/start", (request, response) => {
+  if (!googleAuth.isConfigured()) {
+    throw new ApiError(503, "Google OAuth не настроен на сервере.");
+  }
+
+  const state = googleAuth.createState();
+  setSessionCookie(request, response, GOOGLE_STATE_COOKIE_NAME, state, 1000 * 60 * 10);
+  response.redirect(302, googleAuth.getAuthorizationUrl(request, state));
+});
+
+app.get("/api/auth/google/callback", async (request, response) => {
+  if (!googleAuth.isConfigured()) {
+    redirectToApp(request, response, { authError: "Google OAuth не настроен на сервере." });
+    return;
+  }
+
+  const providerError = typeof request.query.error === "string" ? request.query.error : null;
+  if (providerError) {
+    clearCookie(request, response, GOOGLE_STATE_COOKIE_NAME);
+    redirectToApp(request, response, { authError: "Вход через Google был отменён или отклонён." });
+    return;
+  }
+
+  const expectedState = getCookie(request, GOOGLE_STATE_COOKIE_NAME);
+  const state = typeof request.query.state === "string" ? request.query.state : "";
+  const code = typeof request.query.code === "string" ? request.query.code : "";
+
+  if (!expectedState || !state || expectedState !== state) {
+    clearCookie(request, response, GOOGLE_STATE_COOKIE_NAME);
+    redirectToApp(request, response, { authError: "Не удалось проверить безопасный вход через Google." });
+    return;
+  }
+
+  if (!code) {
+    clearCookie(request, response, GOOGLE_STATE_COOKIE_NAME);
+    redirectToApp(request, response, { authError: "Google не вернул код авторизации." });
+    return;
+  }
+
+  try {
+    const identity = await googleAuth.exchangeCode(request, code);
+    const user = store.completeGoogleSignIn(identity);
+    const authSession = createAuthSessionToken(sessionSecret, store.getAuthSessionVersion(), user.id);
+    setSessionCookie(request, response, AUTH_COOKIE_NAME, authSession.token, SESSION_COOKIE_MAX_AGE);
+    clearCookie(request, response, GOOGLE_STATE_COOKIE_NAME);
+    await snapshotSync.save(store);
+    redirectToApp(request, response, { auth: "google" });
+  } catch (error) {
+    clearCookie(request, response, GOOGLE_STATE_COOKIE_NAME);
+    const message = error instanceof ApiError ? error.message : "Не удалось войти через Google.";
+    redirectToApp(request, response, { authError: message });
+  }
+});
+
+app.post("/api/auth/logout", (request, response) => {
+  clearCookie(request, response, AUTH_COOKIE_NAME);
+  clearCookie(request, response, GOOGLE_STATE_COOKIE_NAME);
+  response.status(204).send();
 });
 
 app.post("/api/auth/unlock", (request, response) => {

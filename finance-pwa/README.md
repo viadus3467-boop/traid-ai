@@ -110,3 +110,17 @@ npm start
 - production build проходит: `npm run build`
 - `GET /api/health` отвечает `200`
 - мобильный UI проверен в in-app браузере на viewport `390x844`
+## Google Auth
+
+Чтобы включить регистрацию и вход через Google:
+
+1. Создайте `OAuth 2.0 Client ID` в Google Cloud Console.
+2. Добавьте `Authorized redirect URI`:
+   - локально: `http://localhost:3001/api/auth/google/callback`
+   - на Render: `https://<your-service>.onrender.com/api/auth/google/callback`
+3. Задайте переменные окружения:
+   - `GOOGLE_CLIENT_ID`
+   - `GOOGLE_CLIENT_SECRET`
+   - `GOOGLE_REDIRECT_URI`
+
+Если `GOOGLE_CLIENT_ID` и `GOOGLE_CLIENT_SECRET` не заданы, приложение продолжит работать без обязательного Google-входа.

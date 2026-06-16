@@ -2,12 +2,18 @@ export type TransactionType = "income" | "expense";
 export type PeriodKey = "day" | "week" | "month" | "year";
 export type GoalStatus = "active" | "completed" | "overdue";
 export type AppScreen = "home" | "history" | "statistics" | "goals" | "family" | "settings";
+export type AuthProvider = "local" | "google";
 
 export interface UserProfile {
   id: number;
   name: string;
+  email: string | null;
+  avatarUrl: string | null;
+  authProvider: AuthProvider;
+  googleLinked: boolean;
   hasPin: boolean;
   createdAt: string;
+  lastLoginAt: string | null;
 }
 
 export interface FamilyMember {
@@ -135,7 +141,12 @@ export interface BootstrapResponse {
 
 export interface AuthStatusResponse {
   appName: string;
+  googleAuthEnabled: boolean;
+  isAuthenticated: boolean;
+  pinUnlocked: boolean;
   hasPin: boolean;
+  googleLoginUrl: string | null;
+  user: UserProfile | null;
 }
 
 export interface UnlockResponse {

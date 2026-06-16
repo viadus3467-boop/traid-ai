@@ -18,6 +18,7 @@ import {
   Goal,
   Import,
   LockKeyhole,
+  LogOut,
   Pencil,
   PiggyBank,
   Plus,
@@ -125,12 +126,26 @@ function makeDownload(filename: string, content: string, type: string) {
   URL.revokeObjectURL(url);
 }
 
+function GoogleMark() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4">
+      <path fill="#EA4335" d="M12 10.2v3.9h5.4c-.2 1.2-.9 2.2-1.9 2.9l3.1 2.4c1.8-1.7 2.9-4.1 2.9-7 0-.7-.1-1.4-.2-2H12Z" />
+      <path fill="#34A853" d="M12 22c2.6 0 4.8-.9 6.4-2.5l-3.1-2.4c-.9.6-2 .9-3.3.9-2.5 0-4.7-1.7-5.4-4.1H3.4v2.5A9.9 9.9 0 0 0 12 22Z" />
+      <path fill="#4A90E2" d="M6.6 13.9a5.9 5.9 0 0 1 0-3.8V7.6H3.4a9.9 9.9 0 0 0 0 8.8l3.2-2.5Z" />
+      <path fill="#FBBC05" d="M12 5.9c1.4 0 2.6.5 3.5 1.4l2.6-2.6A9.7 9.7 0 0 0 12 2 9.9 9.9 0 0 0 3.4 7.6l3.2 2.5c.7-2.4 2.9-4.2 5.4-4.2Z" />
+    </svg>
+  );
+}
+
 export default function App() {
   const [screen, setScreen] = useState<AppScreen>(() => readScreen());
   const [period, setPeriod] = useState<PeriodKey>("month");
   const [anchor, setAnchor] = useState(todayKey());
   const [authChecked, setAuthChecked] = useState(false);
+  const [googleAuthEnabled, setGoogleAuthEnabled] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [hasPin, setHasPin] = useState(false);
+  const [pinUnlocked, setPinUnlocked] = useState(true);
   const [sessionVersion, setSessionVersion] = useState(0);
   const [loading, setLoading] = useState(true);
   const [mutating, setMutating] = useState(false);
@@ -183,8 +198,14 @@ export default function App() {
   const handleRequestError = useEffectEvent((issue: unknown) => {
     if (issue instanceof HttpError && issue.status === 401) {
       persistSessionToken(null);
+      setBootstrap(null);
+      setStatistics(null);
+      setTransactions([]);
+      setSettingsDraft(null);
+      setPinUnlocked(false);
       setSessionVersion((value) => value + 1);
       setError(null);
+      void loadAuth();
       return;
     }
 
@@ -216,10 +237,14 @@ export default function App() {
   const loadAuth = useEffectEvent(async () => {
     try {
       const status = await api.authStatus();
+      setGoogleAuthEnabled(status.googleAuthEnabled);
+      setIsAuthenticated(status.isAuthenticated);
       setHasPin(status.hasPin);
+      setPinUnlocked(status.pinUnlocked);
       setAuthChecked(true);
     } catch (issue) {
-      handleRequestError(issue);
+      setError(issue instanceof Error ? issue.message : "Не удалось проверить вход.");
+      setAuthChecked(true);
       setLoading(false);
     }
   });
@@ -244,13 +269,18 @@ export default function App() {
       return;
     }
 
-    if (hasPin && !api.getSessionToken()) {
+    if (googleAuthEnabled && !isAuthenticated) {
+      setLoading(false);
+      return;
+    }
+
+    if (hasPin && !pinUnlocked) {
       setLoading(false);
       return;
     }
 
     void refreshData(period, anchor);
-  }, [anchor, authChecked, hasPin, period, refreshData, sessionVersion]);
+  }, [anchor, authChecked, googleAuthEnabled, hasPin, isAuthenticated, period, pinUnlocked, refreshData, sessionVersion]);
 
   useEffect(() => {
     if (!notice) {
@@ -260,6 +290,34 @@ export default function App() {
     const timeoutId = window.setTimeout(() => setNotice(null), 2400);
     return () => window.clearTimeout(timeoutId);
   }, [notice]);
+
+  useEffect(() => {
+    if (!authChecked) {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const auth = params.get("auth");
+    const authError = params.get("authError");
+
+    if (!auth && !authError) {
+      return;
+    }
+
+    if (auth === "google") {
+      setNotice("Вход через Google выполнен.");
+    }
+
+    if (authError) {
+      setError(authError);
+    }
+
+    params.delete("auth");
+    params.delete("authError");
+    const nextQuery = params.toString();
+    const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash || "#home"}`;
+    window.history.replaceState({}, "", nextUrl);
+  }, [authChecked]);
 
   function navigate(next: AppScreen) {
     startTransition(() => {
@@ -291,13 +349,40 @@ export default function App() {
       const result = await api.unlock(unlockPinValue);
       persistSessionToken(result.token);
       setUnlockPinValue("");
+      setPinUnlocked(true);
       setSessionVersion((value) => value + 1);
+      void loadAuth();
     } catch (issue) {
       handleRequestError(issue);
     }
   }
 
-  if (!authChecked || (loading && !bootstrap && !(hasPin && !api.getSessionToken()))) {
+  async function signOut() {
+    setMutating(true);
+    setError(null);
+
+    try {
+      await api.logout();
+      persistSessionToken(null);
+      setBootstrap(null);
+      setStatistics(null);
+      setTransactions([]);
+      setSettingsDraft(null);
+      setPinUnlocked(false);
+      setSessionVersion((value) => value + 1);
+      await loadAuth();
+      setNotice("Вы вышли из аккаунта.");
+    } catch (issue) {
+      handleRequestError(issue);
+    } finally {
+      setMutating(false);
+    }
+  }
+
+  const needsGoogleLogin = googleAuthEnabled && !isAuthenticated;
+  const needsPinUnlock = hasPin && isAuthenticated && !pinUnlocked;
+
+  if (!authChecked || (loading && !bootstrap && !needsGoogleLogin && !needsPinUnlock)) {
     return (
       <AppFrame>
         <GlassCard className="mt-12 p-8 text-center">
@@ -313,7 +398,36 @@ export default function App() {
     );
   }
 
-  if (hasPin && !api.getSessionToken()) {
+  if (needsGoogleLogin) {
+    return (
+      <AppFrame>
+        <div className="flex min-h-[80vh] items-center">
+          <GlassCard className="w-full p-6">
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-[24px] bg-[linear-gradient(135deg,#ffffff_0%,#d7ecff_48%,#9ed8ff_100%)] text-slate-950">
+              <GoogleMark />
+            </div>
+            <h1 className="text-center text-[28px] font-semibold tracking-[-0.04em] text-white">Finora</h1>
+            <p className="mt-3 text-center text-sm leading-6 text-white/58">
+              Войдите через Google, чтобы сохранить доступ к бюджету, истории и целям без повторной авторизации.
+            </p>
+            <button
+              type="button"
+              className={`${primaryButton} mt-6 w-full`}
+              onClick={() => {
+                window.location.assign("/api/auth/google/start");
+              }}
+            >
+              <GoogleMark />
+              Войти через Google
+            </button>
+            {error ? <div className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">{error}</div> : null}
+          </GlassCard>
+        </div>
+      </AppFrame>
+    );
+  }
+
+  if (needsPinUnlock) {
     return (
       <AppFrame>
         <div className="flex min-h-[80vh] items-center">
@@ -505,13 +619,16 @@ export default function App() {
       setHasPin(pinMode !== "remove");
       if (pinMode === "remove") {
         persistSessionToken(null);
+        setPinUnlocked(true);
         setSessionVersion((value) => value + 1);
       }
       if (pinMode !== "remove") {
         const unlock = await api.unlock(pinValue);
         persistSessionToken(unlock.token);
+        setPinUnlocked(true);
         setSessionVersion((value) => value + 1);
       }
+      await loadAuth();
     }, pinMode === "remove" ? "PIN-код отключён." : "PIN-код сохранён.");
   }
 
@@ -846,6 +963,34 @@ export default function App() {
       {screen === "history" ? (
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
           <SectionTitle eyebrow="Поиск" title="История операций" />
+          {googleAuthEnabled ? (
+            <GlassCard className="space-y-4">
+              <SectionTitle eyebrow="Аккаунт" title="Вход через Google" />
+              <div className="flex items-center gap-4">
+                {data.user.avatarUrl ? (
+                  <img
+                    src={data.user.avatarUrl}
+                    alt={data.user.name}
+                    className="h-14 w-14 rounded-[20px] border border-white/10 object-cover"
+                  />
+                ) : (
+                  <div className="flex h-14 w-14 items-center justify-center rounded-[20px] bg-white/10 text-lg font-semibold text-white">
+                    {data.user.name.slice(0, 1).toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-base font-semibold text-white">{data.user.name}</div>
+                  <div className="truncate text-sm text-white/56">{data.user.email ?? "Google аккаунт подключён"}</div>
+                  <div className="mt-1 text-xs uppercase tracking-[0.22em] text-sky-200/70">Сессия сохраняется между входами</div>
+                </div>
+              </div>
+              <button type="button" className={secondaryButton} onClick={() => void signOut()}>
+                <LogOut className="h-4 w-4" />
+                Выйти из аккаунта
+              </button>
+            </GlassCard>
+          ) : null}
+
           <GlassCard className="space-y-3">
             <div className="relative">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />

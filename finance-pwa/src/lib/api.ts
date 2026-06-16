@@ -23,16 +23,24 @@ export class HttpError extends Error {
 }
 
 function getSessionToken() {
-  return sessionStorage.getItem(SESSION_KEY);
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.localStorage.getItem(SESSION_KEY);
 }
 
 export function persistSessionToken(token: string | null) {
-  if (token) {
-    sessionStorage.setItem(SESSION_KEY, token);
+  if (typeof window === "undefined") {
     return;
   }
 
-  sessionStorage.removeItem(SESSION_KEY);
+  if (token) {
+    window.localStorage.setItem(SESSION_KEY, token);
+    return;
+  }
+
+  window.localStorage.removeItem(SESSION_KEY);
 }
 
 async function request<T>(input: string, init?: RequestInit): Promise<T> {
@@ -51,6 +59,7 @@ async function request<T>(input: string, init?: RequestInit): Promise<T> {
   const response = await fetch(input, {
     ...init,
     headers,
+    credentials: "same-origin",
   });
 
   if (!response.ok) {
@@ -84,6 +93,11 @@ export const api = {
     return request<UnlockResponse>("/api/auth/unlock", {
       method: "POST",
       body: JSON.stringify({ pin }),
+    });
+  },
+  async logout() {
+    return request<void>("/api/auth/logout", {
+      method: "POST",
     });
   },
   async bootstrap(period: string, anchor: string) {
@@ -179,6 +193,7 @@ export const api = {
   async exportJson() {
     const response = await fetch("/api/export?format=json", {
       headers: getSessionToken() ? { Authorization: `Bearer ${getSessionToken()}` } : {},
+      credentials: "same-origin",
     });
 
     if (!response.ok) {
@@ -190,6 +205,7 @@ export const api = {
   async exportCsv() {
     const response = await fetch("/api/export?format=csv", {
       headers: getSessionToken() ? { Authorization: `Bearer ${getSessionToken()}` } : {},
+      credentials: "same-origin",
     });
 
     if (!response.ok) {

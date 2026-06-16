@@ -15,7 +15,8 @@ import {
 } from "./constants.js";
 import { diffDays, enumerateDateKeys, getPeriodRange, isValidDateKey, monthKey, monthLabel, todayKey } from "./date.js";
 import { ApiError } from "./errors.js";
-import { createSessionToken, getPinVersion, hashPin, verifyPin } from "./security.js";
+import type { GoogleIdentity } from "./google-auth.js";
+import { createPinSessionToken, getAuthVersion, getPinVersion, hashPin, verifyPin } from "./security.js";
 import type {
   AggregateItem,
   AppSettings,
@@ -34,6 +35,7 @@ import type {
   TransactionType,
   UserProfile,
   ExpenseTemplate,
+  AuthProvider,
 } from "./types.js";
 
 type TransactionInput = {
@@ -200,6 +202,26 @@ export class FinanceStore {
       CREATE INDEX IF NOT EXISTS idx_transactions_family ON transactions(family_member_id);
       CREATE INDEX IF NOT EXISTS idx_goals_status ON saving_goals(status);
     `);
+
+    const userColumns = new Set(
+      this.db
+        .prepare("PRAGMA table_info(users)")
+        .all()
+        .map((row) => String((row as { name: string }).name)),
+    );
+
+    const ensureUserColumn = (name: string, definition: string) => {
+      if (!userColumns.has(name)) {
+        this.db.exec(`ALTER TABLE users ADD COLUMN ${definition}`);
+      }
+    };
+
+    ensureUserColumn("email", "email TEXT");
+    ensureUserColumn("avatar_url", "avatar_url TEXT");
+    ensureUserColumn("auth_provider", "auth_provider TEXT NOT NULL DEFAULT 'local'");
+    ensureUserColumn("google_subject", "google_subject TEXT");
+    ensureUserColumn("last_login_at", "last_login_at TEXT");
+    this.db.prepare("UPDATE users SET auth_provider = COALESCE(auth_provider, 'local')").run();
   }
 
   private seed() {
@@ -474,19 +496,66 @@ export class FinanceStore {
     return row?.pin_code_hash ? String(row.pin_code_hash) : null;
   }
 
+  private getGoogleSubject(): string | null {
+    const row = this.getUserRow();
+    return row?.google_subject ? String(row.google_subject) : null;
+  }
+
+  private getStoredAuthProvider(row: any): AuthProvider {
+    return row?.auth_provider === "google" ? "google" : "local";
+  }
+
   public getUserProfile(): UserProfile {
     const row = this.getUserRow();
     assert(row, 500, "Пользователь не инициализирован.");
     return {
       id: Number(row.id),
       name: String(row.name),
+      email: row.email ? String(row.email) : null,
+      avatarUrl: row.avatar_url ? String(row.avatar_url) : null,
+      authProvider: this.getStoredAuthProvider(row),
+      googleLinked: Boolean(row.google_subject),
       hasPin: Boolean(row.pin_code_hash),
       createdAt: String(row.created_at),
+      lastLoginAt: row.last_login_at ? String(row.last_login_at) : null,
     };
   }
 
   public hasPinConfigured(): boolean {
     return Boolean(this.getRawPinHash());
+  }
+
+  public getAuthSessionVersion() {
+    return getAuthVersion(this.getGoogleSubject());
+  }
+
+  public isGoogleLinked() {
+    return Boolean(this.getGoogleSubject());
+  }
+
+  public completeGoogleSignIn(identity: GoogleIdentity) {
+    const row = this.getUserRow();
+    assert(row, 500, "Пользователь не инициализирован.");
+
+    const existingSubject = row.google_subject ? String(row.google_subject) : null;
+    assert(
+      !existingSubject || existingSubject === identity.subject,
+      403,
+      "Этот Google-аккаунт не привязан к текущему бюджету.",
+    );
+
+    const now = nowIso();
+    const nextName = sanitizeText(identity.name, String(row.name)) || String(row.name);
+    const nextEmail = sanitizeText(identity.email, "", 160);
+    const nextAvatarUrl = sanitizeText(identity.avatarUrl ?? "", "", 500) || null;
+
+    this.db
+      .prepare(
+        "UPDATE users SET name = ?, email = ?, avatar_url = ?, auth_provider = ?, google_subject = ?, last_login_at = ? WHERE id = 1",
+      )
+      .run(nextName, nextEmail || null, nextAvatarUrl, "google", identity.subject, now);
+
+    return this.getUserProfile();
   }
 
   public getSettings(): AppSettings {
@@ -740,7 +809,7 @@ export class FinanceStore {
     const pinHash = this.getRawPinHash();
 
     if (!pinHash) {
-      const session = createSessionToken(this.sessionSecret, getPinVersion(null));
+      const session = createPinSessionToken(this.sessionSecret, getPinVersion(null));
       return { ...session, hasPin: false };
     }
 
@@ -748,7 +817,7 @@ export class FinanceStore {
     assert(verifyPin(pin, pinHash), 401, "Неверный PIN-код.");
 
     return {
-      ...createSessionToken(this.sessionSecret, getPinVersion(pinHash)),
+      ...createPinSessionToken(this.sessionSecret, getPinVersion(pinHash)),
       hasPin: true,
     };
   }
@@ -929,8 +998,13 @@ export class FinanceStore {
       user: {
         id: Number(user.id),
         name: String(user.name),
+        email: user.email ? String(user.email) : null,
+        avatarUrl: user.avatar_url ? String(user.avatar_url) : null,
+        authProvider: this.getStoredAuthProvider(user),
+        googleSubject: user.google_subject ? String(user.google_subject) : null,
         createdAt: String(user.created_at),
         pinCodeHash: user.pin_code_hash ? String(user.pin_code_hash) : null,
+        lastLoginAt: user.last_login_at ? String(user.last_login_at) : null,
       },
       familyMembers: this.listFamilyMembers(),
       transactions: this.listTransactions(),
@@ -941,16 +1015,26 @@ export class FinanceStore {
 
   private replaceState({
     userName,
+    userEmail,
+    userAvatarUrl,
+    authProvider,
+    googleSubject,
     userCreatedAt,
     pinCodeHash,
+    lastLoginAt,
     members,
     transactionItems,
     goalItems,
     settings,
   }: {
     userName: string;
+    userEmail: string | null;
+    userAvatarUrl: string | null;
+    authProvider: AuthProvider;
+    googleSubject: string | null;
     userCreatedAt: string;
     pinCodeHash: string | null;
+    lastLoginAt: string | null;
     members: FamilyMember[];
     transactionItems: unknown[];
     goalItems: unknown[];
@@ -962,8 +1046,10 @@ export class FinanceStore {
       this.db.prepare("DELETE FROM family_members").run();
 
       this.db
-        .prepare("UPDATE users SET name = ?, pin_code_hash = ?, created_at = ? WHERE id = 1")
-        .run(userName, pinCodeHash, userCreatedAt);
+        .prepare(
+          "UPDATE users SET name = ?, email = ?, avatar_url = ?, auth_provider = ?, google_subject = ?, pin_code_hash = ?, created_at = ?, last_login_at = ? WHERE id = 1",
+        )
+        .run(userName, userEmail, userAvatarUrl, authProvider, googleSubject, pinCodeHash, userCreatedAt, lastLoginAt);
 
       for (const member of members) {
         this.db
@@ -1099,15 +1185,38 @@ export class FinanceStore {
 
     const members = normalizedMembers.length > 0 ? normalizedMembers : [{ id: 1, name: "Я", createdAt: nowIso() }];
     const userName = sanitizeText(snapshot.user?.name, currentUser.name);
+    const userEmail =
+      snapshot.user && typeof snapshot.user.email === "string"
+        ? sanitizeText(snapshot.user.email, "", 160) || null
+        : currentUser.email;
+    const userAvatarUrl =
+      snapshot.user && typeof snapshot.user.avatarUrl === "string"
+        ? sanitizeText(snapshot.user.avatarUrl, "", 500) || null
+        : currentUser.avatarUrl;
+    const authProvider =
+      snapshot.user?.authProvider === "google" || snapshot.user?.authProvider === "local"
+        ? snapshot.user.authProvider
+        : currentUser.authProvider;
+    const googleSubject =
+      snapshot.user && typeof snapshot.user.googleSubject === "string"
+        ? sanitizeText(snapshot.user.googleSubject, "", 255) || null
+        : this.getGoogleSubject();
     const userCreatedAt =
       snapshot.user && typeof snapshot.user.createdAt === "string" ? snapshot.user.createdAt : currentUser.createdAt;
     const pinCodeHash =
       snapshot.user && typeof snapshot.user.pinCodeHash === "string" ? snapshot.user.pinCodeHash : null;
+    const lastLoginAt =
+      snapshot.user && typeof snapshot.user.lastLoginAt === "string" ? snapshot.user.lastLoginAt : currentUser.lastLoginAt;
 
     this.replaceState({
       userName,
+      userEmail,
+      userAvatarUrl,
+      authProvider,
+      googleSubject,
       userCreatedAt,
       pinCodeHash,
+      lastLoginAt,
       members,
       transactionItems: Array.isArray(snapshot.transactions) ? snapshot.transactions : [],
       goalItems: Array.isArray(snapshot.goals) ? snapshot.goals : [],
@@ -1179,8 +1288,13 @@ export class FinanceStore {
     if (mode === "replace") {
       this.replaceState({
         userName: sanitizeText(importedUser.name, "Я"),
+        userEmail: currentUser.email,
+        userAvatarUrl: currentUser.avatarUrl,
+        authProvider: currentUser.authProvider,
+        googleSubject: this.getGoogleSubject(),
         userCreatedAt: currentUser.createdAt,
         pinCodeHash: this.getRawPinHash(),
+        lastLoginAt: currentUser.lastLoginAt,
         members,
         transactionItems: importedTransactions,
         goalItems: importedGoals,

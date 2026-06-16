@@ -3,12 +3,18 @@ import type { GOAL_STATUS, PERIOD_KEYS, TRANSACTION_TYPES } from "./constants.js
 export type TransactionType = (typeof TRANSACTION_TYPES)[number];
 export type GoalStatus = (typeof GOAL_STATUS)[number];
 export type PeriodKey = (typeof PERIOD_KEYS)[number];
+export type AuthProvider = "local" | "google";
 
 export interface UserProfile {
   id: number;
   name: string;
+  email: string | null;
+  avatarUrl: string | null;
+  authProvider: AuthProvider;
+  googleLinked: boolean;
   hasPin: boolean;
   createdAt: string;
+  lastLoginAt: string | null;
 }
 
 export interface FamilyMember {
@@ -136,7 +142,7 @@ export interface TransactionFilters {
 export interface ExportPayload {
   schemaVersion: number;
   exportedAt: string;
-  user: Pick<UserProfile, "id" | "name" | "createdAt" | "hasPin">;
+  user: UserProfile;
   familyMembers: FamilyMember[];
   transactions: TransactionRecord[];
   goals: GoalRecord[];
@@ -149,8 +155,13 @@ export interface PersistenceSnapshot {
   user: {
     id: number;
     name: string;
+    email: string | null;
+    avatarUrl: string | null;
+    authProvider: AuthProvider;
+    googleSubject: string | null;
     createdAt: string;
     pinCodeHash: string | null;
+    lastLoginAt: string | null;
   };
   familyMembers: FamilyMember[];
   transactions: TransactionRecord[];
