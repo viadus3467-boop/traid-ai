@@ -152,7 +152,18 @@ export interface ExportPayload {
 export interface PersistenceSnapshot {
   schemaVersion: number;
   persistedAt: string;
-  user: {
+  users?: Array<{
+    id: number;
+    name: string;
+    email: string | null;
+    avatarUrl: string | null;
+    authProvider: AuthProvider;
+    googleSubject: string | null;
+    createdAt: string;
+    pinCodeHash: string | null;
+    lastLoginAt: string | null;
+  }>;
+  user?: {
     id: number;
     name: string;
     email: string | null;
@@ -163,8 +174,9 @@ export interface PersistenceSnapshot {
     pinCodeHash: string | null;
     lastLoginAt: string | null;
   };
-  familyMembers: FamilyMember[];
+  familyMembers: Array<FamilyMember & { userId?: number }>;
   transactions: TransactionRecord[];
   goals: GoalRecord[];
-  settings: AppSettings;
+  settingsByUser?: Array<AppSettings & { userId: number }>;
+  settings?: AppSettings;
 }

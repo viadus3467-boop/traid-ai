@@ -11,6 +11,31 @@ type SessionPayload = {
   version: string;
 };
 
+function parseSessionPayload(token: string): SessionPayload | null {
+  const [encoded] = token.split(".");
+
+  if (!encoded) {
+    return null;
+  }
+
+  try {
+    const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as SessionPayload;
+    if (
+      !Number.isInteger(payload.userId) ||
+      payload.userId <= 0 ||
+      !Number.isFinite(payload.exp) ||
+      (payload.purpose !== "auth" && payload.purpose !== "pin") ||
+      typeof payload.version !== "string"
+    ) {
+      return null;
+    }
+
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 export function hashPin(pin: string): string {
   const salt = randomBytes(16).toString("hex");
   const derived = scryptSync(pin, salt, 64).toString("hex");
@@ -92,6 +117,10 @@ function verifySignedSessionToken(
 
 export function createPinSessionToken(secret: string, pinVersion: string, userId = 1) {
   return createSignedSessionToken(secret, "pin", pinVersion, userId);
+}
+
+export function readSessionTokenPayload(token: string) {
+  return parseSessionPayload(token);
 }
 
 export function verifyPinSessionToken(token: string, secret: string, pinVersion: string): SessionPayload | null {

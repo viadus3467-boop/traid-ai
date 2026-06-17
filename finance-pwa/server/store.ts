@@ -149,7 +149,7 @@ export class FinanceStore {
   private migrate() {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY CHECK (id = 1),
+        id INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
         pin_code_hash TEXT,
         created_at TEXT NOT NULL
@@ -203,6 +203,68 @@ export class FinanceStore {
       CREATE INDEX IF NOT EXISTS idx_goals_status ON saving_goals(status);
     `);
 
+    const legacyUserColumns = new Set(
+      this.db
+        .prepare("PRAGMA table_info(users)")
+        .all()
+        .map((row) => String((row as { name: string }).name)),
+    );
+    const userTableSql = String(
+      this.db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'").get()?.sql ?? "",
+    );
+
+    if (userTableSql.includes("CHECK (id = 1)") || userTableSql.includes("CHECK(id = 1)")) {
+      const pinHashColumn = legacyUserColumns.has("pin_code_hash") ? "pin_code_hash" : "NULL AS pin_code_hash";
+      const emailColumn = legacyUserColumns.has("email") ? "email" : "NULL AS email";
+      const avatarColumn = legacyUserColumns.has("avatar_url") ? "avatar_url" : "NULL AS avatar_url";
+      const authProviderColumn = legacyUserColumns.has("auth_provider")
+        ? "COALESCE(auth_provider, 'local') AS auth_provider"
+        : "'local' AS auth_provider";
+      const googleSubjectColumn = legacyUserColumns.has("google_subject") ? "google_subject" : "NULL AS google_subject";
+      const lastLoginColumn = legacyUserColumns.has("last_login_at") ? "last_login_at" : "NULL AS last_login_at";
+
+      this.db.exec("PRAGMA foreign_keys = OFF");
+      this.db.exec("BEGIN IMMEDIATE");
+
+      try {
+        this.db.exec("ALTER TABLE users RENAME TO users_legacy");
+        this.db.exec(`
+          CREATE TABLE users (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            pin_code_hash TEXT,
+            created_at TEXT NOT NULL,
+            email TEXT,
+            avatar_url TEXT,
+            auth_provider TEXT NOT NULL DEFAULT 'local',
+            google_subject TEXT,
+            last_login_at TEXT
+          );
+        `);
+        this.db.exec(`
+          INSERT INTO users (id, name, pin_code_hash, created_at, email, avatar_url, auth_provider, google_subject, last_login_at)
+          SELECT
+            id,
+            name,
+            ${pinHashColumn},
+            created_at,
+            ${emailColumn},
+            ${avatarColumn},
+            ${authProviderColumn},
+            ${googleSubjectColumn},
+            ${lastLoginColumn}
+          FROM users_legacy
+        `);
+        this.db.exec("DROP TABLE users_legacy");
+        this.db.exec("COMMIT");
+      } catch (error) {
+        this.db.exec("ROLLBACK");
+        throw error;
+      } finally {
+        this.db.exec("PRAGMA foreign_keys = ON");
+      }
+    }
+
     const userColumns = new Set(
       this.db
         .prepare("PRAGMA table_info(users)")
@@ -222,27 +284,21 @@ export class FinanceStore {
     ensureUserColumn("google_subject", "google_subject TEXT");
     ensureUserColumn("last_login_at", "last_login_at TEXT");
     this.db.prepare("UPDATE users SET auth_provider = COALESCE(auth_provider, 'local')").run();
+    this.db.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_subject
+      ON users(google_subject)
+      WHERE google_subject IS NOT NULL;
+    `);
   }
 
   private seed() {
     const now = nowIso();
-    this.db.prepare("INSERT OR IGNORE INTO users (id, name, created_at) VALUES (1, ?, ?)").run("Я", now);
-
-    const membersCountRow = this.db.prepare("SELECT COUNT(*) AS count FROM family_members").get();
-    const membersCount = Number(membersCountRow?.count ?? 0);
-    if (membersCount === 0) {
-      this.db.prepare("INSERT INTO family_members (user_id, name, created_at) VALUES (1, ?, ?)").run("Я", now);
+    const usersCount = Number(this.db.prepare("SELECT COUNT(*) AS count FROM users").get()?.count ?? 0);
+    if (usersCount === 0) {
+      this.db.prepare("INSERT INTO users (id, name, created_at, auth_provider) VALUES (1, ?, ?, 'local')").run("Я", now);
     }
 
-    this.db.prepare(
-      "INSERT OR IGNORE INTO app_settings (user_id, expense_categories, income_sources, category_budgets, expense_templates, updated_at) VALUES (1, ?, ?, ?, ?, ?)",
-    ).run(
-      JSON.stringify(DEFAULT_EXPENSE_CATEGORIES),
-      JSON.stringify(DEFAULT_INCOME_SOURCES),
-      JSON.stringify({}),
-      JSON.stringify(DEFAULT_EXPENSE_TEMPLATES),
-      now,
-    );
+    this.ensureUserResources(1, "Я");
   }
 
   private withTransaction<T>(callback: () => T): T {
@@ -267,12 +323,31 @@ export class FinanceStore {
     };
   }
 
-  private saveSettings(next: AppSettings): AppSettings {
+  private createDefaultSettings(updatedAt = nowIso()): AppSettings {
+    return {
+      expenseCategories: [...DEFAULT_EXPENSE_CATEGORIES],
+      incomeSources: [...DEFAULT_INCOME_SOURCES],
+      categoryBudgets: {},
+      expenseTemplates: [...DEFAULT_EXPENSE_TEMPLATES],
+      updatedAt,
+    };
+  }
+
+  private saveSettings(userId: number, next: AppSettings): AppSettings {
     this.db
       .prepare(
-        "UPDATE app_settings SET expense_categories = ?, income_sources = ?, category_budgets = ?, expense_templates = ?, updated_at = ? WHERE user_id = 1",
+        `INSERT INTO app_settings (user_id, expense_categories, income_sources, category_budgets, expense_templates, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT (user_id)
+         DO UPDATE SET
+           expense_categories = excluded.expense_categories,
+           income_sources = excluded.income_sources,
+           category_budgets = excluded.category_budgets,
+           expense_templates = excluded.expense_templates,
+           updated_at = excluded.updated_at`,
       )
       .run(
+        userId,
         JSON.stringify(next.expenseCategories),
         JSON.stringify(next.incomeSources),
         JSON.stringify(next.categoryBudgets),
@@ -281,6 +356,22 @@ export class FinanceStore {
       );
 
     return next;
+  }
+
+  private ensureUserResources(userId: number, familyMemberName = "Я") {
+    const nextMemberName = sanitizeText(familyMemberName, "Я") || "Я";
+    const membersCount = Number(
+      this.db.prepare("SELECT COUNT(*) AS count FROM family_members WHERE user_id = ?").get(userId)?.count ?? 0,
+    );
+
+    if (membersCount === 0) {
+      this.db.prepare("INSERT INTO family_members (user_id, name, created_at) VALUES (?, ?, ?)").run(userId, nextMemberName, nowIso());
+    }
+
+    const settingsRow = this.db.prepare("SELECT user_id FROM app_settings WHERE user_id = ?").get(userId);
+    if (!settingsRow) {
+      this.saveSettings(userId, this.createDefaultSettings());
+    }
   }
 
   private normalizeBudgets(value: unknown): Record<string, number> {
@@ -394,8 +485,8 @@ export class FinanceStore {
     return "active";
   }
 
-  private syncGoalStatuses(): GoalRecord[] {
-    const rows = this.db.prepare("SELECT * FROM saving_goals ORDER BY updated_at DESC").all();
+  private syncGoalStatuses(userId: number): GoalRecord[] {
+    const rows = this.db.prepare("SELECT * FROM saving_goals WHERE user_id = ? ORDER BY updated_at DESC").all(userId);
     const goals = rows.map((row) => this.goalRowToModel(row));
     const now = nowIso();
 
@@ -403,8 +494,8 @@ export class FinanceStore {
       const stored = rows.find((row) => String(row.id) === goal.id);
       if (stored && String(stored.status) !== goal.status) {
         this.db
-          .prepare("UPDATE saving_goals SET status = ?, updated_at = ? WHERE id = ?")
-          .run(goal.status, now, goal.id);
+          .prepare("UPDATE saving_goals SET status = ?, updated_at = ? WHERE id = ? AND user_id = ?")
+          .run(goal.status, now, goal.id, userId);
         goal.updatedAt = now;
       }
     }
@@ -412,7 +503,7 @@ export class FinanceStore {
     return goals.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
   }
 
-  private queryTransactionsBase(): TransactionRecord[] {
+  private queryTransactionsBase(userId: number): TransactionRecord[] {
     const rows = this.db
       .prepare(
         `SELECT
@@ -420,19 +511,20 @@ export class FinanceStore {
           fm.name AS family_member_name
         FROM transactions t
         JOIN family_members fm ON fm.id = t.family_member_id
+        WHERE t.user_id = ? AND fm.user_id = ?
         ORDER BY t.date DESC, t.created_at DESC`,
       )
-      .all();
+      .all(userId, userId);
 
     return rows.map((row) => this.transactionRowToModel(row));
   }
 
-  private ensureFamilyMemberExists(id: number) {
-    const row = this.db.prepare("SELECT id FROM family_members WHERE id = ?").get(id);
+  private ensureFamilyMemberExists(userId: number, id: number) {
+    const row = this.db.prepare("SELECT id FROM family_members WHERE id = ? AND user_id = ?").get(id, userId);
     assert(row, 404, "Член семьи не найден.");
   }
 
-  private validateTransactionInput(input: TransactionInput): TransactionInput {
+  private validateTransactionInput(userId: number, input: TransactionInput): TransactionInput {
     const type = input.type;
     assert(TRANSACTION_TYPES.includes(type), 400, "Некорректный тип операции.");
 
@@ -445,7 +537,7 @@ export class FinanceStore {
 
     const familyMemberId = Number(input.familyMemberId);
     assert(Number.isInteger(familyMemberId) && familyMemberId > 0, 400, "Укажите члена семьи.");
-    this.ensureFamilyMemberExists(familyMemberId);
+    this.ensureFamilyMemberExists(userId, familyMemberId);
 
     return {
       type,
@@ -487,17 +579,25 @@ export class FinanceStore {
     return { appName: APP_NAME };
   }
 
-  private getUserRow() {
-    return this.db.prepare("SELECT * FROM users WHERE id = 1").get();
+  public hasUser(userId: number): boolean {
+    return Boolean(this.getUserRowById(userId));
   }
 
-  private getRawPinHash(): string | null {
-    const row = this.getUserRow();
+  private getUserRowById(userId: number) {
+    return this.db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
+  }
+
+  private getUserRowByGoogleSubject(subject: string) {
+    return this.db.prepare("SELECT * FROM users WHERE google_subject = ?").get(subject);
+  }
+
+  private getRawPinHash(userId: number): string | null {
+    const row = this.getUserRowById(userId);
     return row?.pin_code_hash ? String(row.pin_code_hash) : null;
   }
 
-  private getGoogleSubject(): string | null {
-    const row = this.getUserRow();
+  private getGoogleSubject(userId: number): string | null {
+    const row = this.getUserRowById(userId);
     return row?.google_subject ? String(row.google_subject) : null;
   }
 
@@ -505,8 +605,8 @@ export class FinanceStore {
     return row?.auth_provider === "google" ? "google" : "local";
   }
 
-  public getUserProfile(): UserProfile {
-    const row = this.getUserRow();
+  public getUserProfile(userId: number): UserProfile {
+    const row = this.getUserRowById(userId);
     assert(row, 500, "Пользователь не инициализирован.");
     return {
       id: Number(row.id),
@@ -521,52 +621,59 @@ export class FinanceStore {
     };
   }
 
-  public hasPinConfigured(): boolean {
-    return Boolean(this.getRawPinHash());
+  public hasPinConfigured(userId: number): boolean {
+    return Boolean(this.getRawPinHash(userId));
   }
 
-  public getAuthSessionVersion() {
-    return getAuthVersion(this.getGoogleSubject());
+  public getAuthSessionVersion(userId: number) {
+    return getAuthVersion(this.getGoogleSubject(userId));
   }
 
-  public isGoogleLinked() {
-    return Boolean(this.getGoogleSubject());
+  public isGoogleLinked(userId: number) {
+    return Boolean(this.getGoogleSubject(userId));
   }
 
   public completeGoogleSignIn(identity: GoogleIdentity) {
-    const row = this.getUserRow();
-    assert(row, 500, "Пользователь не инициализирован.");
-
-    const existingSubject = row.google_subject ? String(row.google_subject) : null;
-    assert(
-      !existingSubject || existingSubject === identity.subject,
-      403,
-      "Этот Google-аккаунт не привязан к текущему бюджету.",
-    );
-
     const now = nowIso();
-    const nextName = sanitizeText(identity.name, String(row.name)) || String(row.name);
-    const nextEmail = sanitizeText(identity.email, "", 160);
+    const nextName = sanitizeText(identity.name, identity.email) || identity.email;
+    const nextEmail = sanitizeText(identity.email, "", 160) || null;
     const nextAvatarUrl = sanitizeText(identity.avatarUrl ?? "", "", 500) || null;
+    const existingRow = this.getUserRowByGoogleSubject(identity.subject);
 
-    this.db
+    if (existingRow) {
+      const userId = Number(existingRow.id);
+      this.db
+        .prepare(
+          "UPDATE users SET name = ?, email = ?, avatar_url = ?, auth_provider = ?, google_subject = ?, last_login_at = ? WHERE id = ?",
+        )
+        .run(nextName, nextEmail, nextAvatarUrl, "google", identity.subject, now, userId);
+      this.ensureUserResources(userId, "Я");
+      return this.getUserProfile(userId);
+    }
+
+    const result = this.db
       .prepare(
-        "UPDATE users SET name = ?, email = ?, avatar_url = ?, auth_provider = ?, google_subject = ?, last_login_at = ? WHERE id = 1",
+        "INSERT INTO users (name, pin_code_hash, created_at, email, avatar_url, auth_provider, google_subject, last_login_at) VALUES (?, NULL, ?, ?, ?, 'google', ?, ?)",
       )
-      .run(nextName, nextEmail || null, nextAvatarUrl, "google", identity.subject, now);
-
-    return this.getUserProfile();
+      .run(nextName, now, nextEmail, nextAvatarUrl, identity.subject, now);
+    const userId = Number(result.lastInsertRowid);
+    this.ensureUserResources(userId, "Я");
+    return this.getUserProfile(userId);
   }
 
-  public getSettings(): AppSettings {
-    const row = this.db.prepare("SELECT * FROM app_settings WHERE user_id = 1").get();
+  public getSettings(userId: number): AppSettings {
+    const row = this.db.prepare("SELECT * FROM app_settings WHERE user_id = ?").get(userId);
+    if (!row) {
+      this.ensureUserResources(userId, "Я");
+      return this.getSettings(userId);
+    }
     return this.settingsRowToModel(row);
   }
 
-  public listFamilyMembers(): FamilyMember[] {
+  public listFamilyMembers(userId: number): FamilyMember[] {
     return this.db
-      .prepare("SELECT id, name, created_at FROM family_members ORDER BY created_at ASC")
-      .all()
+      .prepare("SELECT id, name, created_at FROM family_members WHERE user_id = ? ORDER BY created_at ASC")
+      .all(userId)
       .map((row) => ({
         id: Number(row.id),
         name: String(row.name),
@@ -574,13 +681,13 @@ export class FinanceStore {
       }));
   }
 
-  public createFamilyMember(name: string): FamilyMember {
+  public createFamilyMember(userId: number, name: string): FamilyMember {
     const trimmed = sanitizeText(name);
     assert(trimmed, 400, "Введите имя члена семьи.");
     const now = nowIso();
     const result = this.db
-      .prepare("INSERT INTO family_members (user_id, name, created_at) VALUES (1, ?, ?)")
-      .run(trimmed, now);
+      .prepare("INSERT INTO family_members (user_id, name, created_at) VALUES (?, ?, ?)")
+      .run(userId, trimmed, now);
     return {
       id: Number(result.lastInsertRowid),
       name: trimmed,
@@ -588,16 +695,16 @@ export class FinanceStore {
     };
   }
 
-  public updateFamilyMember(id: number, name: string): FamilyMember {
-    this.ensureFamilyMemberExists(id);
+  public updateFamilyMember(userId: number, id: number, name: string): FamilyMember {
+    this.ensureFamilyMemberExists(userId, id);
     const trimmed = sanitizeText(name);
     assert(trimmed, 400, "Введите имя члена семьи.");
-    this.db.prepare("UPDATE family_members SET name = ? WHERE id = ?").run(trimmed, id);
-    return this.listFamilyMembers().find((member) => member.id === id)!;
+    this.db.prepare("UPDATE family_members SET name = ? WHERE id = ? AND user_id = ?").run(trimmed, id, userId);
+    return this.listFamilyMembers(userId).find((member) => member.id === id)!;
   }
 
-  public deleteFamilyMember(id: number) {
-    const members = this.listFamilyMembers();
+  public deleteFamilyMember(userId: number, id: number) {
+    const members = this.listFamilyMembers(userId);
     const member = members.find((item) => item.id === id);
     assert(member, 404, "Член семьи не найден.");
     assert(members.length > 1, 400, "Нельзя удалить последнего участника семьи.");
@@ -606,13 +713,15 @@ export class FinanceStore {
     assert(fallbackMember, 400, "Нужен хотя бы один участник семьи.");
 
     this.withTransaction(() => {
-      this.db.prepare("UPDATE transactions SET family_member_id = ? WHERE family_member_id = ?").run(fallbackMember.id, id);
-      this.db.prepare("DELETE FROM family_members WHERE id = ?").run(id);
+      this.db
+        .prepare("UPDATE transactions SET family_member_id = ? WHERE user_id = ? AND family_member_id = ?")
+        .run(fallbackMember.id, userId, id);
+      this.db.prepare("DELETE FROM family_members WHERE id = ? AND user_id = ?").run(id, userId);
     });
   }
 
-  public listTransactions(filters: TransactionFilters = {}): TransactionRecord[] {
-    return this.queryTransactionsBase().filter((item) => {
+  public listTransactions(userId: number, filters: TransactionFilters = {}): TransactionRecord[] {
+    return this.queryTransactionsBase(userId).filter((item) => {
       if (filters.type && item.type !== filters.type) {
         return false;
       }
@@ -644,23 +753,24 @@ export class FinanceStore {
     });
   }
 
-  public getTransaction(id: string): TransactionRecord {
-    const transaction = this.listTransactions().find((item) => item.id === id);
+  public getTransaction(userId: number, id: string): TransactionRecord {
+    const transaction = this.listTransactions(userId).find((item) => item.id === id);
     assert(transaction, 404, "Операция не найдена.");
     return transaction;
   }
 
-  public createTransaction(input: TransactionInput): TransactionRecord {
-    const validated = this.validateTransactionInput(input);
+  public createTransaction(userId: number, input: TransactionInput): TransactionRecord {
+    const validated = this.validateTransactionInput(userId, input);
     const now = nowIso();
     const id = randomUUID();
 
     this.db
       .prepare(
-        "INSERT INTO transactions (id, user_id, family_member_id, type, amount, category, description, note, date, created_at, updated_at) VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO transactions (id, user_id, family_member_id, type, amount, category, description, note, date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       )
       .run(
         id,
+        userId,
         validated.familyMemberId,
         validated.type,
         validated.amount,
@@ -672,17 +782,17 @@ export class FinanceStore {
         now,
       );
 
-    return this.getTransaction(id);
+    return this.getTransaction(userId, id);
   }
 
-  public updateTransaction(id: string, input: TransactionInput): TransactionRecord {
-    this.getTransaction(id);
-    const validated = this.validateTransactionInput(input);
+  public updateTransaction(userId: number, id: string, input: TransactionInput): TransactionRecord {
+    this.getTransaction(userId, id);
+    const validated = this.validateTransactionInput(userId, input);
     const now = nowIso();
 
     this.db
       .prepare(
-        "UPDATE transactions SET family_member_id = ?, type = ?, amount = ?, category = ?, description = ?, note = ?, date = ?, updated_at = ? WHERE id = ?",
+        "UPDATE transactions SET family_member_id = ?, type = ?, amount = ?, category = ?, description = ?, note = ?, date = ?, updated_at = ? WHERE id = ? AND user_id = ?",
       )
       .run(
         validated.familyMemberId,
@@ -694,31 +804,33 @@ export class FinanceStore {
         validated.date,
         now,
         id,
+        userId,
       );
 
-    return this.getTransaction(id);
+    return this.getTransaction(userId, id);
   }
 
-  public deleteTransaction(id: string) {
-    this.getTransaction(id);
-    this.db.prepare("DELETE FROM transactions WHERE id = ?").run(id);
+  public deleteTransaction(userId: number, id: string) {
+    this.getTransaction(userId, id);
+    this.db.prepare("DELETE FROM transactions WHERE id = ? AND user_id = ?").run(id, userId);
   }
 
-  public listGoals(): GoalRecord[] {
-    return this.syncGoalStatuses();
+  public listGoals(userId: number): GoalRecord[] {
+    return this.syncGoalStatuses(userId);
   }
 
-  public createGoal(input: GoalInput): GoalRecord {
+  public createGoal(userId: number, input: GoalInput): GoalRecord {
     const validated = this.validateGoalInput(input);
     const now = nowIso();
     const id = randomUUID();
 
     this.db
       .prepare(
-        "INSERT INTO saving_goals (id, user_id, title, target_amount, current_amount, deadline, status, created_at, updated_at) VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO saving_goals (id, user_id, title, target_amount, current_amount, deadline, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
       )
       .run(
         id,
+        userId,
         validated.title,
         validated.targetAmount,
         validated.currentAmount,
@@ -728,18 +840,18 @@ export class FinanceStore {
         now,
       );
 
-    return this.listGoals().find((goal) => goal.id === id)!;
+    return this.listGoals(userId).find((goal) => goal.id === id)!;
   }
 
-  public updateGoal(id: string, input: GoalInput): GoalRecord {
-    const goal = this.listGoals().find((item) => item.id === id);
+  public updateGoal(userId: number, id: string, input: GoalInput): GoalRecord {
+    const goal = this.listGoals(userId).find((item) => item.id === id);
     assert(goal, 404, "Цель не найдена.");
     const validated = this.validateGoalInput(input);
     const now = nowIso();
 
     this.db
       .prepare(
-        "UPDATE saving_goals SET title = ?, target_amount = ?, current_amount = ?, deadline = ?, status = ?, updated_at = ? WHERE id = ?",
+        "UPDATE saving_goals SET title = ?, target_amount = ?, current_amount = ?, deadline = ?, status = ?, updated_at = ? WHERE id = ? AND user_id = ?",
       )
       .run(
         validated.title,
@@ -749,18 +861,19 @@ export class FinanceStore {
         validated.status,
         now,
         id,
+        userId,
       );
 
-    return this.listGoals().find((item) => item.id === id)!;
+    return this.listGoals(userId).find((item) => item.id === id)!;
   }
 
-  public addGoalContribution(id: string, amount: number): GoalRecord {
-    const goal = this.listGoals().find((item) => item.id === id);
+  public addGoalContribution(userId: number, id: string, amount: number): GoalRecord {
+    const goal = this.listGoals(userId).find((item) => item.id === id);
     assert(goal, 404, "Цель не найдена.");
     const increment = Number(amount);
     assert(Number.isFinite(increment) && increment > 0, 400, "Сумма пополнения должна быть больше 0.");
     const nextCurrentAmount = roundMoney(goal.currentAmount + increment);
-    return this.updateGoal(id, {
+    return this.updateGoal(userId, id, {
       title: goal.title,
       targetAmount: goal.targetAmount,
       currentAmount: nextCurrentAmount,
@@ -768,14 +881,14 @@ export class FinanceStore {
     });
   }
 
-  public deleteGoal(id: string) {
-    const goal = this.listGoals().find((item) => item.id === id);
+  public deleteGoal(userId: number, id: string) {
+    const goal = this.listGoals(userId).find((item) => item.id === id);
     assert(goal, 404, "Цель не найдена.");
-    this.db.prepare("DELETE FROM saving_goals WHERE id = ?").run(id);
+    this.db.prepare("DELETE FROM saving_goals WHERE id = ? AND user_id = ?").run(id, userId);
   }
 
-  public updateSettings(input: SettingsInput): AppSettings {
-    const current = this.getSettings();
+  public updateSettings(userId: number, input: SettingsInput): AppSettings {
+    const current = this.getSettings(userId);
     const next: AppSettings = {
       expenseCategories: input.expenseCategories ? uniqueStrings(input.expenseCategories, current.expenseCategories) : current.expenseCategories,
       incomeSources: input.incomeSources ? uniqueStrings(input.incomeSources, current.incomeSources) : current.incomeSources,
@@ -784,11 +897,11 @@ export class FinanceStore {
       updatedAt: nowIso(),
     };
 
-    return this.saveSettings(next);
+    return this.saveSettings(userId, next);
   }
 
-  public setPin(nextPin: string | null, currentPin?: string) {
-    const existingHash = this.getRawPinHash();
+  public setPin(userId: number, nextPin: string | null, currentPin?: string) {
+    const existingHash = this.getRawPinHash(userId);
 
     if (existingHash) {
       assert(currentPin, 400, "Введите текущий PIN-код.");
@@ -796,20 +909,20 @@ export class FinanceStore {
     }
 
     if (nextPin === null || nextPin === "") {
-      this.db.prepare("UPDATE users SET pin_code_hash = NULL WHERE id = 1").run();
+      this.db.prepare("UPDATE users SET pin_code_hash = NULL WHERE id = ?").run(userId);
       return { hasPin: false };
     }
 
     assert(/^\d{4,6}$/.test(nextPin), 400, "PIN-код должен содержать от 4 до 6 цифр.");
-    this.db.prepare("UPDATE users SET pin_code_hash = ? WHERE id = 1").run(hashPin(nextPin));
+    this.db.prepare("UPDATE users SET pin_code_hash = ? WHERE id = ?").run(hashPin(nextPin), userId);
     return { hasPin: true };
   }
 
-  public unlock(pin: string) {
-    const pinHash = this.getRawPinHash();
+  public unlock(userId: number, pin: string) {
+    const pinHash = this.getRawPinHash(userId);
 
     if (!pinHash) {
-      const session = createPinSessionToken(this.sessionSecret, getPinVersion(null));
+      const session = createPinSessionToken(this.sessionSecret, getPinVersion(null), userId);
       return { ...session, hasPin: false };
     }
 
@@ -817,19 +930,19 @@ export class FinanceStore {
     assert(verifyPin(pin, pinHash), 401, "Неверный PIN-код.");
 
     return {
-      ...createPinSessionToken(this.sessionSecret, getPinVersion(pinHash)),
+      ...createPinSessionToken(this.sessionSecret, getPinVersion(pinHash), userId),
       hasPin: true,
     };
   }
 
-  public getSessionPinVersion() {
-    return getPinVersion(this.getRawPinHash());
+  public getSessionPinVersion(userId: number) {
+    return getPinVersion(this.getRawPinHash(userId));
   }
 
-  public getBudgetAlerts(anchor = todayKey()): BudgetAlert[] {
-    const settings = this.getSettings();
+  public getBudgetAlerts(userId: number, anchor = todayKey()): BudgetAlert[] {
+    const settings = this.getSettings(userId);
     const monthRange = getPeriodRange("month", anchor);
-    const expenses = this.listTransactions({
+    const expenses = this.listTransactions(userId, {
       type: "expense",
       from: monthRange.startKey,
       to: monthRange.endKey,
@@ -858,15 +971,15 @@ export class FinanceStore {
       .filter((item): item is BudgetAlert => item !== null);
   }
 
-  public getDashboard(period: PeriodKey, anchor = todayKey()): DashboardSnapshot {
+  public getDashboard(userId: number, period: PeriodKey, anchor = todayKey()): DashboardSnapshot {
     assert(PERIOD_KEYS.includes(period), 400, "Некорректный период.");
     const range = getPeriodRange(period, anchor);
-    const allTransactions = this.listTransactions();
-    const rangedTransactions = this.listTransactions({ from: range.startKey, to: range.endKey });
+    const allTransactions = this.listTransactions(userId);
+    const rangedTransactions = this.listTransactions(userId, { from: range.startKey, to: range.endKey });
     const periodIncome = sumValues(rangedTransactions, "income");
     const periodExpense = sumValues(rangedTransactions, "expense");
     const balance = roundMoney(sumValues(allTransactions, "income") - sumValues(allTransactions, "expense"));
-    const goals = this.listGoals();
+    const goals = this.listGoals(userId);
     const activeGoal =
       goals
         .filter((goal) => goal.status !== "completed")
@@ -886,13 +999,13 @@ export class FinanceStore {
       periodNet: roundMoney(periodIncome - periodExpense),
       recentTransactions: allTransactions.slice(0, 8),
       activeGoal,
-      budgetAlerts: this.getBudgetAlerts(anchor),
+      budgetAlerts: this.getBudgetAlerts(userId, anchor),
     };
   }
 
-  public getFamilyInsights(): FamilyInsight[] {
-    const members = this.listFamilyMembers();
-    const allTransactions = this.listTransactions();
+  public getFamilyInsights(userId: number): FamilyInsight[] {
+    const members = this.listFamilyMembers(userId);
+    const allTransactions = this.listTransactions(userId);
 
     return members.map((member) => {
       const items = allTransactions.filter((item) => item.familyMemberId === member.id);
@@ -909,11 +1022,11 @@ export class FinanceStore {
     });
   }
 
-  public getStatistics(period: PeriodKey, anchor = todayKey()): StatisticsSnapshot {
+  public getStatistics(userId: number, period: PeriodKey, anchor = todayKey()): StatisticsSnapshot {
     assert(PERIOD_KEYS.includes(period), 400, "Некорректный период.");
     const range = getPeriodRange(period, anchor);
-    const allTransactions = this.listTransactions();
-    const items = this.listTransactions({ from: range.startKey, to: range.endKey });
+    const allTransactions = this.listTransactions(userId);
+    const items = this.listTransactions(userId, { from: range.startKey, to: range.endKey });
     const expenses = items.filter((item) => item.type === "expense");
     const incomes = items.filter((item) => item.type === "income");
     const biggestExpense = expenses.slice().sort((left, right) => right.amount - left.amount)[0] ?? null;
@@ -964,38 +1077,37 @@ export class FinanceStore {
     };
   }
 
-  public getBootstrap(period: PeriodKey, anchor = todayKey()) {
+  public getBootstrap(userId: number, period: PeriodKey, anchor = todayKey()) {
     return {
       ...this.getAppMetadata(),
-      user: this.getUserProfile(),
-      settings: this.getSettings(),
-      familyMembers: this.listFamilyMembers(),
-      goals: this.listGoals(),
-      dashboard: this.getDashboard(period, anchor),
-      familyInsights: this.getFamilyInsights(),
+      user: this.getUserProfile(userId),
+      settings: this.getSettings(userId),
+      familyMembers: this.listFamilyMembers(userId),
+      goals: this.listGoals(userId),
+      dashboard: this.getDashboard(userId, period, anchor),
+      familyInsights: this.getFamilyInsights(userId),
     };
   }
 
-  public exportData(): ExportPayload {
+  public exportData(userId: number): ExportPayload {
     return {
       schemaVersion: 1,
       exportedAt: nowIso(),
-      user: this.getUserProfile(),
-      familyMembers: this.listFamilyMembers(),
-      transactions: this.listTransactions(),
-      goals: this.listGoals(),
-      settings: this.getSettings(),
+      user: this.getUserProfile(userId),
+      familyMembers: this.listFamilyMembers(userId),
+      transactions: this.listTransactions(userId),
+      goals: this.listGoals(userId),
+      settings: this.getSettings(userId),
     };
   }
 
   public createPersistenceSnapshot(): PersistenceSnapshot {
-    const user = this.getUserRow();
-    assert(user, 500, "Пользователь не инициализирован.");
+    const users = this.db.prepare("SELECT * FROM users ORDER BY id ASC").all();
 
     return {
-      schemaVersion: 1,
+      schemaVersion: 2,
       persistedAt: nowIso(),
-      user: {
+      users: users.map((user) => ({
         id: Number(user.id),
         name: String(user.name),
         email: user.email ? String(user.email) : null,
@@ -1005,15 +1117,42 @@ export class FinanceStore {
         createdAt: String(user.created_at),
         pinCodeHash: user.pin_code_hash ? String(user.pin_code_hash) : null,
         lastLoginAt: user.last_login_at ? String(user.last_login_at) : null,
-      },
-      familyMembers: this.listFamilyMembers(),
-      transactions: this.listTransactions(),
-      goals: this.listGoals(),
-      settings: this.getSettings(),
+      })),
+      familyMembers: this.db
+        .prepare("SELECT id, user_id, name, created_at FROM family_members ORDER BY user_id ASC, created_at ASC")
+        .all()
+        .map((row) => ({
+          id: Number(row.id),
+          userId: Number(row.user_id),
+          name: String(row.name),
+          createdAt: String(row.created_at),
+        })),
+      transactions: this.db
+        .prepare(
+          `SELECT
+            t.*,
+            fm.name AS family_member_name
+          FROM transactions t
+          JOIN family_members fm ON fm.id = t.family_member_id
+          ORDER BY t.user_id ASC, t.date DESC, t.created_at DESC`,
+        )
+        .all()
+        .map((row) => this.transactionRowToModel(row)),
+      goals: this.db
+        .prepare("SELECT * FROM saving_goals ORDER BY user_id ASC, updated_at DESC")
+        .all()
+        .map((row) => this.goalRowToModel(row)),
+      settingsByUser: this.db
+        .prepare("SELECT * FROM app_settings ORDER BY user_id ASC")
+        .all()
+        .map((row) => ({
+          userId: Number(row.user_id),
+          ...this.settingsRowToModel(row),
+        })),
     };
   }
 
-  private replaceState({
+  private replaceState(userId: number, {
     userName,
     userEmail,
     userAvatarUrl,
@@ -1041,20 +1180,23 @@ export class FinanceStore {
     settings: AppSettings;
   }) {
     this.withTransaction(() => {
-      this.db.prepare("DELETE FROM transactions").run();
-      this.db.prepare("DELETE FROM saving_goals").run();
-      this.db.prepare("DELETE FROM family_members").run();
+      assert(this.hasUser(userId), 500, "Пользователь не инициализирован.");
+
+      this.db.prepare("DELETE FROM transactions WHERE user_id = ?").run(userId);
+      this.db.prepare("DELETE FROM saving_goals WHERE user_id = ?").run(userId);
+      this.db.prepare("DELETE FROM family_members WHERE user_id = ?").run(userId);
+      this.db.prepare("DELETE FROM app_settings WHERE user_id = ?").run(userId);
 
       this.db
         .prepare(
-          "UPDATE users SET name = ?, email = ?, avatar_url = ?, auth_provider = ?, google_subject = ?, pin_code_hash = ?, created_at = ?, last_login_at = ? WHERE id = 1",
+          "UPDATE users SET name = ?, email = ?, avatar_url = ?, auth_provider = ?, google_subject = ?, pin_code_hash = ?, created_at = ?, last_login_at = ? WHERE id = ?",
         )
-        .run(userName, userEmail, userAvatarUrl, authProvider, googleSubject, pinCodeHash, userCreatedAt, lastLoginAt);
+        .run(userName, userEmail, userAvatarUrl, authProvider, googleSubject, pinCodeHash, userCreatedAt, lastLoginAt, userId);
 
       for (const member of members) {
         this.db
-          .prepare("INSERT INTO family_members (id, user_id, name, created_at) VALUES (?, 1, ?, ?)")
-          .run(member.id, member.name, member.createdAt);
+          .prepare("INSERT INTO family_members (id, user_id, name, created_at) VALUES (?, ?, ?, ?)")
+          .run(member.id, userId, member.name, member.createdAt);
       }
 
       for (const item of transactionItems) {
@@ -1065,7 +1207,7 @@ export class FinanceStore {
         try {
           const familyMemberId =
             members.find((member) => member.id === Number((item as any).familyMemberId))?.id ?? members[0].id;
-          const validated = this.validateTransactionInput({
+          const validated = this.validateTransactionInput(userId, {
             familyMemberId,
             type: (item as any).type,
             amount: Number((item as any).amount),
@@ -1080,10 +1222,11 @@ export class FinanceStore {
 
           this.db
             .prepare(
-              "INSERT INTO transactions (id, user_id, family_member_id, type, amount, category, description, note, date, created_at, updated_at) VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              "INSERT INTO transactions (id, user_id, family_member_id, type, amount, category, description, note, date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             )
             .run(
               id,
+              userId,
               validated.familyMemberId,
               validated.type,
               validated.amount,
@@ -1117,10 +1260,11 @@ export class FinanceStore {
 
           this.db
             .prepare(
-              "INSERT INTO saving_goals (id, user_id, title, target_amount, current_amount, deadline, status, created_at, updated_at) VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?)",
+              "INSERT INTO saving_goals (id, user_id, title, target_amount, current_amount, deadline, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             )
             .run(
               id,
+              userId,
               validated.title,
               validated.targetAmount,
               validated.currentAmount,
@@ -1134,7 +1278,7 @@ export class FinanceStore {
         }
       }
 
-      this.saveSettings({
+      this.saveSettings(userId, {
         expenseCategories: settings.expenseCategories,
         incomeSources: settings.incomeSources,
         categoryBudgets: settings.categoryBudgets,
@@ -1147,8 +1291,199 @@ export class FinanceStore {
   public hydrateFromPersistenceSnapshot(payload: unknown) {
     assert(payload && typeof payload === "object", 400, "Некорректный persistence snapshot.");
     const snapshot = payload as Partial<PersistenceSnapshot>;
-    const currentSettings = this.getSettings();
-    const currentUser = this.getUserProfile();
+
+    if (Array.isArray(snapshot.users) && Array.isArray(snapshot.familyMembers) && Array.isArray(snapshot.settingsByUser)) {
+      const snapshotUsers = snapshot.users;
+      const snapshotFamilyMembers = snapshot.familyMembers;
+      const snapshotSettingsByUser = snapshot.settingsByUser;
+      const restoredUserIds = new Set<number>();
+      const familyMemberOwners = new Map<number, number>();
+
+      this.withTransaction(() => {
+        this.db.prepare("DELETE FROM transactions").run();
+        this.db.prepare("DELETE FROM saving_goals").run();
+        this.db.prepare("DELETE FROM family_members").run();
+        this.db.prepare("DELETE FROM app_settings").run();
+        this.db.prepare("DELETE FROM users").run();
+
+        for (const rawUser of snapshotUsers) {
+          if (!rawUser || typeof rawUser !== "object") {
+            continue;
+          }
+
+          const userId = Number((rawUser as any).id);
+          const name = sanitizeText((rawUser as any).name, "Я");
+          if (!Number.isInteger(userId) || userId <= 0 || !name) {
+            continue;
+          }
+
+          this.db
+            .prepare(
+              "INSERT INTO users (id, name, pin_code_hash, created_at, email, avatar_url, auth_provider, google_subject, last_login_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            )
+            .run(
+              userId,
+              name,
+              typeof (rawUser as any).pinCodeHash === "string" ? String((rawUser as any).pinCodeHash) : null,
+              typeof (rawUser as any).createdAt === "string" ? String((rawUser as any).createdAt) : nowIso(),
+              typeof (rawUser as any).email === "string" ? sanitizeText((rawUser as any).email, "", 160) || null : null,
+              typeof (rawUser as any).avatarUrl === "string"
+                ? sanitizeText((rawUser as any).avatarUrl, "", 500) || null
+                : null,
+              (rawUser as any).authProvider === "google" ? "google" : "local",
+              typeof (rawUser as any).googleSubject === "string"
+                ? sanitizeText((rawUser as any).googleSubject, "", 255) || null
+                : null,
+              typeof (rawUser as any).lastLoginAt === "string" ? String((rawUser as any).lastLoginAt) : null,
+            );
+          restoredUserIds.add(userId);
+        }
+
+        for (const rawMember of snapshotFamilyMembers) {
+          if (!rawMember || typeof rawMember !== "object") {
+            continue;
+          }
+
+          const memberId = Number((rawMember as any).id);
+          const memberUserId = Number((rawMember as any).userId);
+          const name = sanitizeText((rawMember as any).name);
+          if (!Number.isInteger(memberId) || memberId <= 0 || !restoredUserIds.has(memberUserId) || !name) {
+            continue;
+          }
+
+          this.db
+            .prepare("INSERT INTO family_members (id, user_id, name, created_at) VALUES (?, ?, ?, ?)")
+            .run(
+              memberId,
+              memberUserId,
+              name,
+              typeof (rawMember as any).createdAt === "string" ? String((rawMember as any).createdAt) : nowIso(),
+            );
+          familyMemberOwners.set(memberId, memberUserId);
+        }
+
+        for (const rawSettings of snapshotSettingsByUser) {
+          if (!rawSettings || typeof rawSettings !== "object") {
+            continue;
+          }
+
+          const settingsUserId = Number((rawSettings as any).userId);
+          if (!restoredUserIds.has(settingsUserId)) {
+            continue;
+          }
+
+          this.saveSettings(settingsUserId, {
+            expenseCategories: uniqueStrings((rawSettings as any).expenseCategories, DEFAULT_EXPENSE_CATEGORIES),
+            incomeSources: uniqueStrings((rawSettings as any).incomeSources, DEFAULT_INCOME_SOURCES),
+            categoryBudgets: this.normalizeBudgets((rawSettings as any).categoryBudgets),
+            expenseTemplates: this.normalizeTemplates((rawSettings as any).expenseTemplates),
+            updatedAt:
+              typeof (rawSettings as any).updatedAt === "string" ? String((rawSettings as any).updatedAt) : nowIso(),
+          });
+        }
+
+        for (const item of Array.isArray(snapshot.transactions) ? snapshot.transactions : []) {
+          if (!item || typeof item !== "object") {
+            continue;
+          }
+
+          try {
+            const itemUserId = Number((item as any).userId);
+            const familyMemberId = Number((item as any).familyMemberId);
+            if (!restoredUserIds.has(itemUserId) || familyMemberOwners.get(familyMemberId) !== itemUserId) {
+              continue;
+            }
+
+            const validated = this.validateTransactionInput(itemUserId, {
+              familyMemberId,
+              type: (item as any).type,
+              amount: Number((item as any).amount),
+              category: (item as any).category,
+              description: (item as any).description,
+              note: (item as any).note,
+              date: (item as any).date,
+            });
+            const id = sanitizeText((item as any).id, randomUUID(), 64);
+            const createdAt = typeof (item as any).createdAt === "string" ? String((item as any).createdAt) : nowIso();
+            const updatedAt = typeof (item as any).updatedAt === "string" ? String((item as any).updatedAt) : createdAt;
+
+            this.db
+              .prepare(
+                "INSERT INTO transactions (id, user_id, family_member_id, type, amount, category, description, note, date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              )
+              .run(
+                id,
+                itemUserId,
+                validated.familyMemberId,
+                validated.type,
+                validated.amount,
+                validated.category,
+                validated.description ?? "",
+                validated.note ?? "",
+                validated.date,
+                createdAt,
+                updatedAt,
+              );
+          } catch {
+            // Skip invalid transaction rows when restoring state.
+          }
+        }
+
+        for (const item of Array.isArray(snapshot.goals) ? snapshot.goals : []) {
+          if (!item || typeof item !== "object") {
+            continue;
+          }
+
+          try {
+            const itemUserId = Number((item as any).userId);
+            if (!restoredUserIds.has(itemUserId)) {
+              continue;
+            }
+
+            const validated = this.validateGoalInput({
+              title: (item as any).title,
+              targetAmount: Number((item as any).targetAmount),
+              currentAmount: Number((item as any).currentAmount),
+              deadline: (item as any).deadline,
+            });
+            const id = sanitizeText((item as any).id, randomUUID(), 64);
+            const createdAt = typeof (item as any).createdAt === "string" ? String((item as any).createdAt) : nowIso();
+            const updatedAt = typeof (item as any).updatedAt === "string" ? String((item as any).updatedAt) : createdAt;
+
+            this.db
+              .prepare(
+                "INSERT INTO saving_goals (id, user_id, title, target_amount, current_amount, deadline, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              )
+              .run(
+                id,
+                itemUserId,
+                validated.title,
+                validated.targetAmount,
+                validated.currentAmount,
+                validated.deadline ?? null,
+                validated.status,
+                createdAt,
+                updatedAt,
+              );
+          } catch {
+            // Skip invalid goal rows when restoring state.
+          }
+        }
+      });
+
+      if (restoredUserIds.size === 0) {
+        this.seed();
+      } else {
+        for (const userId of restoredUserIds) {
+          this.ensureUserResources(userId, "Я");
+        }
+      }
+
+      return;
+    }
+
+    const currentSettings = this.getSettings(1);
+    const currentUser = this.getUserProfile(1);
     const normalizedSettings: AppSettings = {
       expenseCategories: uniqueStrings(snapshot.settings?.expenseCategories, currentSettings.expenseCategories),
       incomeSources: uniqueStrings(snapshot.settings?.incomeSources, currentSettings.incomeSources),
@@ -1200,7 +1535,7 @@ export class FinanceStore {
     const googleSubject =
       snapshot.user && typeof snapshot.user.googleSubject === "string"
         ? sanitizeText(snapshot.user.googleSubject, "", 255) || null
-        : this.getGoogleSubject();
+        : this.getGoogleSubject(1);
     const userCreatedAt =
       snapshot.user && typeof snapshot.user.createdAt === "string" ? snapshot.user.createdAt : currentUser.createdAt;
     const pinCodeHash =
@@ -1208,7 +1543,7 @@ export class FinanceStore {
     const lastLoginAt =
       snapshot.user && typeof snapshot.user.lastLoginAt === "string" ? snapshot.user.lastLoginAt : currentUser.lastLoginAt;
 
-    this.replaceState({
+    this.replaceState(1, {
       userName,
       userEmail,
       userAvatarUrl,
@@ -1224,10 +1559,10 @@ export class FinanceStore {
     });
   }
 
-  public exportTransactionsCsv(): string {
+  public exportTransactionsCsv(userId: number): string {
     const header = ["id", "type", "amount", "category", "description", "note", "date", "familyMember"];
     const escape = (value: string | number) => `"${String(value).replaceAll("\"", "\"\"")}"`;
-    const lines = this.listTransactions().map((item) =>
+    const lines = this.listTransactions(userId).map((item) =>
       [
         item.id,
         item.type,
@@ -1244,7 +1579,7 @@ export class FinanceStore {
     return [header.join(","), ...lines].join("\n");
   }
 
-  public importData(payload: unknown, mode: ImportMode) {
+  public importData(userId: number, payload: unknown, mode: ImportMode) {
     assert(payload && typeof payload === "object", 400, "Некорректный JSON для импорта.");
     const source = payload as Record<string, unknown>;
     const importedFamilyMembers = Array.isArray(source.familyMembers) ? source.familyMembers : [];
@@ -1275,8 +1610,8 @@ export class FinanceStore {
 
     const members = normalizedMembers.length > 0 ? normalizedMembers : [{ id: 1, name: "Я", createdAt: nowIso() }];
 
-    const currentSettings = this.getSettings();
-    const currentUser = this.getUserProfile();
+    const currentSettings = this.getSettings(userId);
+    const currentUser = this.getUserProfile(userId);
     const normalizedSettings: AppSettings = {
       expenseCategories: uniqueStrings(importedSettings.expenseCategories, currentSettings.expenseCategories),
       incomeSources: uniqueStrings(importedSettings.incomeSources, currentSettings.incomeSources),
@@ -1286,14 +1621,14 @@ export class FinanceStore {
     };
 
     if (mode === "replace") {
-      this.replaceState({
+      this.replaceState(userId, {
         userName: sanitizeText(importedUser.name, "Я"),
         userEmail: currentUser.email,
         userAvatarUrl: currentUser.avatarUrl,
         authProvider: currentUser.authProvider,
-        googleSubject: this.getGoogleSubject(),
+        googleSubject: this.getGoogleSubject(userId),
         userCreatedAt: currentUser.createdAt,
-        pinCodeHash: this.getRawPinHash(),
+        pinCodeHash: this.getRawPinHash(userId),
         lastLoginAt: currentUser.lastLoginAt,
         members,
         transactionItems: importedTransactions,
@@ -1301,10 +1636,10 @@ export class FinanceStore {
         settings: normalizedSettings,
       });
 
-      return this.getBootstrap("month", todayKey());
+      return this.getBootstrap(userId, "month", todayKey());
     }
 
-    const existingMembers = this.listFamilyMembers();
+    const existingMembers = this.listFamilyMembers(userId);
     const existingByName = new Map(existingMembers.map((member) => [member.name.toLowerCase(), member]));
     const memberMap = new Map<number, number>();
 
@@ -1313,7 +1648,7 @@ export class FinanceStore {
       if (existing) {
         memberMap.set(member.id, existing.id);
       } else {
-        const created = this.createFamilyMember(member.name);
+        const created = this.createFamilyMember(userId, member.name);
         memberMap.set(member.id, created.id);
       }
     }
@@ -1324,13 +1659,13 @@ export class FinanceStore {
       }
 
       const sourceId = sanitizeText((item as any).id, randomUUID(), 64);
-      if (this.listTransactions().some((transaction) => transaction.id === sourceId)) {
+      if (this.listTransactions(userId).some((transaction) => transaction.id === sourceId)) {
         continue;
       }
 
       try {
-        this.createTransaction({
-          familyMemberId: memberMap.get(Number((item as any).familyMemberId)) ?? this.listFamilyMembers()[0].id,
+        this.createTransaction(userId, {
+          familyMemberId: memberMap.get(Number((item as any).familyMemberId)) ?? this.listFamilyMembers(userId)[0].id,
           type: (item as any).type,
           amount: Number((item as any).amount),
           category: (item as any).category,
@@ -1349,7 +1684,7 @@ export class FinanceStore {
       }
 
       const sourceId = sanitizeText((item as any).id, randomUUID(), 64);
-      if (this.listGoals().some((goal) => goal.id === sourceId)) {
+      if (this.listGoals(userId).some((goal) => goal.id === sourceId)) {
         continue;
       }
 
@@ -1363,10 +1698,11 @@ export class FinanceStore {
         const now = nowIso();
         this.db
           .prepare(
-            "INSERT INTO saving_goals (id, user_id, title, target_amount, current_amount, deadline, status, created_at, updated_at) VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO saving_goals (id, user_id, title, target_amount, current_amount, deadline, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
           )
           .run(
             sourceId,
+            userId,
             validated.title,
             validated.targetAmount,
             validated.currentAmount,
@@ -1380,7 +1716,7 @@ export class FinanceStore {
       }
     }
 
-    this.updateSettings({
+    this.updateSettings(userId, {
       expenseCategories: [...currentSettings.expenseCategories, ...normalizedSettings.expenseCategories],
       incomeSources: [...currentSettings.incomeSources, ...normalizedSettings.incomeSources],
       categoryBudgets: { ...currentSettings.categoryBudgets, ...normalizedSettings.categoryBudgets },
@@ -1390,21 +1726,21 @@ export class FinanceStore {
       ),
     });
 
-    return this.getBootstrap("month", todayKey());
+    return this.getBootstrap(userId, "month", todayKey());
   }
 
-  public resetTransactions(confirmation: string, includeGoals = false, goalsConfirmation?: string) {
+  public resetTransactions(userId: number, confirmation: string, includeGoals = false, goalsConfirmation?: string) {
     assert(confirmation === "RESET", 400, "Подтвердите сброс словом RESET.");
 
     this.withTransaction(() => {
-      this.db.prepare("DELETE FROM transactions").run();
+      this.db.prepare("DELETE FROM transactions WHERE user_id = ?").run(userId);
 
       if (includeGoals) {
         assert(goalsConfirmation === "DELETE_GOALS", 400, "Для удаления целей нужно отдельное подтверждение.");
-        this.db.prepare("DELETE FROM saving_goals").run();
+        this.db.prepare("DELETE FROM saving_goals WHERE user_id = ?").run(userId);
       }
     });
 
-    return this.getBootstrap("month", todayKey());
+    return this.getBootstrap(userId, "month", todayKey());
   }
 }

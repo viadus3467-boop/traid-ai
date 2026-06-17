@@ -5,7 +5,7 @@ import express from "express";
 import { clearCookie, getCookie, setSessionCookie, AUTH_COOKIE_NAME, GOOGLE_STATE_COOKIE_NAME } from "./cookies.js";
 import { ApiError } from "./errors.js";
 import { GoogleAuth } from "./google-auth.js";
-import { verifyAuthSessionToken, verifyPinSessionToken, createAuthSessionToken } from "./security.js";
+import { verifyAuthSessionToken, verifyPinSessionToken, createAuthSessionToken, readSessionTokenPayload } from "./security.js";
 import { SnapshotSync } from "./snapshot-sync.js";
 import { FinanceStore } from "./store.js";
 import { PERIOD_KEYS } from "./constants.js";
@@ -56,6 +56,10 @@ function getPinToken(request: express.Request): string | null {
   return null;
 }
 
+function getDefaultUserId() {
+  return 1;
+}
+
 function getGoogleAuthSession(request: express.Request) {
   if (!googleAuth.isConfigured()) {
     return null;
@@ -66,32 +70,65 @@ function getGoogleAuthSession(request: express.Request) {
     return null;
   }
 
-  return verifyAuthSessionToken(token, sessionSecret, store.getAuthSessionVersion());
+  const preview = readSessionTokenPayload(token);
+  if (!preview || preview.purpose !== "auth" || !store.hasUser(preview.userId)) {
+    return null;
+  }
+
+  const verified = verifyAuthSessionToken(token, sessionSecret, store.getAuthSessionVersion(preview.userId));
+  return verified?.userId === preview.userId ? verified : null;
 }
 
-function isPinUnlocked(request: express.Request) {
-  if (!store.hasPinConfigured()) {
+function getCurrentUserId(request: express.Request): number | null {
+  if (!googleAuth.isConfigured()) {
+    return getDefaultUserId();
+  }
+
+  return getGoogleAuthSession(request)?.userId ?? null;
+}
+
+function requireCurrentUserId(request: express.Request): number {
+  const userId = getCurrentUserId(request);
+  if (!userId) {
+    throw new ApiError(401, "Требуется вход через Google.");
+  }
+
+  return userId;
+}
+
+function isPinUnlocked(request: express.Request, userId: number) {
+  if (!store.hasPinConfigured(userId)) {
     return true;
   }
 
   const token = getPinToken(request);
-  return token ? Boolean(verifyPinSessionToken(token, sessionSecret, store.getSessionPinVersion())) : false;
+  if (!token) {
+    return false;
+  }
+
+  const preview = readSessionTokenPayload(token);
+  if (!preview || preview.purpose !== "pin" || preview.userId !== userId) {
+    return false;
+  }
+
+  return Boolean(verifyPinSessionToken(token, sessionSecret, store.getSessionPinVersion(userId)));
 }
 
 function getAuthStatusPayload(request: express.Request) {
   const googleAuthEnabled = googleAuth.isConfigured();
   const authSession = getGoogleAuthSession(request);
   const isAuthenticated = !googleAuthEnabled || Boolean(authSession);
-  const pinUnlocked = !isAuthenticated ? false : isPinUnlocked(request);
+  const userId = authSession?.userId ?? (!googleAuthEnabled ? getDefaultUserId() : null);
+  const pinUnlocked = !isAuthenticated || !userId ? false : isPinUnlocked(request, userId);
 
   return {
     appName: "Finora",
     googleAuthEnabled,
     isAuthenticated,
     pinUnlocked,
-    hasPin: store.hasPinConfigured(),
+    hasPin: userId ? store.hasPinConfigured(userId) : false,
     googleLoginUrl: googleAuthEnabled ? "/api/auth/google/start" : null,
-    user: isAuthenticated ? store.getUserProfile() : null,
+    user: isAuthenticated && userId ? store.getUserProfile(userId) : null,
   };
 }
 
@@ -104,6 +141,7 @@ app.use(express.json({ limit: "4mb" }));
 app.use("/api", (request, response, next) => {
   const googleAuthEnabled = googleAuth.isConfigured();
   const googleSession = getGoogleAuthSession(request);
+  const userId = googleAuthEnabled ? (googleSession?.userId ?? null) : getDefaultUserId();
 
   const alwaysPublicPaths = new Set([
     "/health",
@@ -133,12 +171,12 @@ app.use("/api", (request, response, next) => {
     return;
   }
 
-  if (!store.hasPinConfigured()) {
+  if (!userId || !store.hasPinConfigured(userId)) {
     next();
     return;
   }
 
-  if (!isPinUnlocked(request)) {
+  if (!isPinUnlocked(request, userId)) {
     response.status(401).json({ message: "Требуется PIN-код." });
     return;
   }
@@ -196,7 +234,7 @@ app.get("/api/auth/google/callback", async (request, response) => {
   try {
     const identity = await googleAuth.exchangeCode(request, code);
     const user = store.completeGoogleSignIn(identity);
-    const authSession = createAuthSessionToken(sessionSecret, store.getAuthSessionVersion(), user.id);
+    const authSession = createAuthSessionToken(sessionSecret, store.getAuthSessionVersion(user.id), user.id);
     setSessionCookie(request, response, AUTH_COOKIE_NAME, authSession.token, SESSION_COOKIE_MAX_AGE);
     clearCookie(request, response, GOOGLE_STATE_COOKIE_NAME);
     await snapshotSync.save(store);
@@ -216,42 +254,46 @@ app.post("/api/auth/logout", (request, response) => {
 
 app.post("/api/auth/unlock", (request, response) => {
   const pin = typeof request.body?.pin === "string" ? request.body.pin : "";
-  response.json(store.unlock(pin));
+  response.json(store.unlock(requireCurrentUserId(request), pin));
 });
 
 app.get("/api/bootstrap", (request, response) => {
-  response.json(store.getBootstrap(getPeriod(request.query.period), getAnchor(request.query.anchor)));
+  const userId = requireCurrentUserId(request);
+  response.json(store.getBootstrap(userId, getPeriod(request.query.period), getAnchor(request.query.anchor)));
 });
 
 app.get("/api/dashboard", (request, response) => {
-  response.json(store.getDashboard(getPeriod(request.query.period), getAnchor(request.query.anchor)));
+  const userId = requireCurrentUserId(request);
+  response.json(store.getDashboard(userId, getPeriod(request.query.period), getAnchor(request.query.anchor)));
 });
 
 app.get("/api/statistics", (request, response) => {
-  response.json(store.getStatistics(getPeriod(request.query.period), getAnchor(request.query.anchor)));
+  const userId = requireCurrentUserId(request);
+  response.json(store.getStatistics(userId, getPeriod(request.query.period), getAnchor(request.query.anchor)));
 });
 
-app.get("/api/family", (_request, response) => {
+app.get("/api/family", (request, response) => {
+  const userId = requireCurrentUserId(request);
   response.json({
-    members: store.listFamilyMembers(),
-    insights: store.getFamilyInsights(),
+    members: store.listFamilyMembers(userId),
+    insights: store.getFamilyInsights(userId),
   });
 });
 
 app.post("/api/family", async (request, response) => {
-  const result = store.createFamilyMember(request.body?.name);
+  const result = store.createFamilyMember(requireCurrentUserId(request), request.body?.name);
   await snapshotSync.save(store);
   response.status(201).json(result);
 });
 
 app.put("/api/family/:id", async (request, response) => {
-  const result = store.updateFamilyMember(Number(request.params.id), request.body?.name);
+  const result = store.updateFamilyMember(requireCurrentUserId(request), Number(request.params.id), request.body?.name);
   await snapshotSync.save(store);
   response.json(result);
 });
 
 app.delete("/api/family/:id", async (request, response) => {
-  store.deleteFamilyMember(Number(request.params.id));
+  store.deleteFamilyMember(requireCurrentUserId(request), Number(request.params.id));
   await snapshotSync.save(store);
   response.status(204).send();
 });
@@ -271,66 +313,66 @@ app.get("/api/transactions", (request, response) => {
   };
 
   response.json({
-    items: store.listTransactions(filters),
+    items: store.listTransactions(requireCurrentUserId(request), filters),
   });
 });
 
 app.get("/api/transactions/:id", (request, response) => {
-  response.json(store.getTransaction(request.params.id));
+  response.json(store.getTransaction(requireCurrentUserId(request), request.params.id));
 });
 
 app.post("/api/transactions", async (request, response) => {
-  const result = store.createTransaction(request.body);
+  const result = store.createTransaction(requireCurrentUserId(request), request.body);
   await snapshotSync.save(store);
   response.status(201).json(result);
 });
 
 app.put("/api/transactions/:id", async (request, response) => {
-  const result = store.updateTransaction(request.params.id, request.body);
+  const result = store.updateTransaction(requireCurrentUserId(request), request.params.id, request.body);
   await snapshotSync.save(store);
   response.json(result);
 });
 
 app.delete("/api/transactions/:id", async (request, response) => {
-  store.deleteTransaction(request.params.id);
+  store.deleteTransaction(requireCurrentUserId(request), request.params.id);
   await snapshotSync.save(store);
   response.status(204).send();
 });
 
-app.get("/api/goals", (_request, response) => {
-  response.json({ items: store.listGoals() });
+app.get("/api/goals", (request, response) => {
+  response.json({ items: store.listGoals(requireCurrentUserId(request)) });
 });
 
 app.post("/api/goals", async (request, response) => {
-  const result = store.createGoal(request.body);
+  const result = store.createGoal(requireCurrentUserId(request), request.body);
   await snapshotSync.save(store);
   response.status(201).json(result);
 });
 
 app.put("/api/goals/:id", async (request, response) => {
-  const result = store.updateGoal(request.params.id, request.body);
+  const result = store.updateGoal(requireCurrentUserId(request), request.params.id, request.body);
   await snapshotSync.save(store);
   response.json(result);
 });
 
 app.post("/api/goals/:id/contribution", async (request, response) => {
-  const result = store.addGoalContribution(request.params.id, Number(request.body?.amount));
+  const result = store.addGoalContribution(requireCurrentUserId(request), request.params.id, Number(request.body?.amount));
   await snapshotSync.save(store);
   response.json(result);
 });
 
 app.delete("/api/goals/:id", async (request, response) => {
-  store.deleteGoal(request.params.id);
+  store.deleteGoal(requireCurrentUserId(request), request.params.id);
   await snapshotSync.save(store);
   response.status(204).send();
 });
 
-app.get("/api/settings", (_request, response) => {
-  response.json(store.getSettings());
+app.get("/api/settings", (request, response) => {
+  response.json(store.getSettings(requireCurrentUserId(request)));
 });
 
 app.put("/api/settings", async (request, response) => {
-  const result = store.updateSettings(request.body);
+  const result = store.updateSettings(requireCurrentUserId(request), request.body);
   await snapshotSync.save(store);
   response.json(result);
 });
@@ -344,33 +386,36 @@ app.put("/api/settings/pin", async (request, response) => {
     typeof request.body?.currentPin === "string" && request.body.currentPin.trim()
       ? String(request.body.currentPin).trim()
       : undefined;
-  const result = store.setPin(nextPin, currentPin);
+  const result = store.setPin(requireCurrentUserId(request), nextPin, currentPin);
   await snapshotSync.save(store);
   response.json(result);
 });
 
 app.get("/api/export", (request, response) => {
+  const userId = requireCurrentUserId(request);
   const format = typeof request.query.format === "string" ? request.query.format : "json";
 
   if (format === "csv") {
     response.setHeader("Content-Type", "text/csv; charset=utf-8");
     response.setHeader("Content-Disposition", "attachment; filename=\"finora-transactions.csv\"");
-    response.send(store.exportTransactionsCsv());
+    response.send(store.exportTransactionsCsv(userId));
     return;
   }
 
-  response.json(store.exportData());
+  response.json(store.exportData(userId));
 });
 
 app.post("/api/import", async (request, response) => {
   const mode = request.body?.mode === "merge" ? "merge" : "replace";
-  const result = store.importData(request.body?.payload, mode);
+  const result = store.importData(requireCurrentUserId(request), request.body?.payload, mode);
   await snapshotSync.save(store);
   response.json(result);
 });
 
 app.post("/api/reset", async (request, response) => {
+  const userId = requireCurrentUserId(request);
   const result = store.resetTransactions(
+    userId,
     typeof request.body?.confirmation === "string" ? request.body.confirmation : "",
     Boolean(request.body?.includeGoals),
     typeof request.body?.goalsConfirmation === "string" ? request.body.goalsConfirmation : undefined,
