@@ -138,6 +138,13 @@ function redirectToApp(request: express.Request, response: express.Response, par
 
 app.use(express.json({ limit: "4mb" }));
 
+app.use("/api", (_request, response, next) => {
+  response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+  response.setHeader("Pragma", "no-cache");
+  response.setHeader("Expires", "0");
+  next();
+});
+
 app.use("/api", (request, response, next) => {
   const googleAuthEnabled = googleAuth.isConfigured();
   const googleSession = getGoogleAuthSession(request);

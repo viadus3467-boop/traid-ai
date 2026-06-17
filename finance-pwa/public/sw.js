@@ -1,4 +1,4 @@
-const CACHE_NAME = "finora-shell-v2";
+const CACHE_NAME = "finora-shell-v3";
 const ASSETS = ["/manifest.webmanifest", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -17,6 +17,13 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") {
+    return;
+  }
+
+  const url = new URL(event.request.url);
+
+  if (url.origin === self.location.origin && url.pathname.startsWith("/api/")) {
+    event.respondWith(fetch(event.request));
     return;
   }
 
