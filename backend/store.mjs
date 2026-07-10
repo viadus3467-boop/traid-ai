@@ -2,10 +2,15 @@ import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
-import { ensureUserSettings } from "./preferences.mjs";
+import { ensureUserSettings, getPlanSignalCap, normalizePlan } from "./preferences.mjs";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const dataDir = path.join(root, "data");
+const configuredDataDir = String(process.env.TRADE_AI_DATA_DIR || "").trim();
+const dataDir = configuredDataDir
+  ? path.isAbsolute(configuredDataDir)
+    ? configuredDataDir
+    : path.join(root, configuredDataDir)
+  : path.join(root, "data");
 const sqliteFile = path.join(dataDir, "trade-ai.db");
 const legacyJsonFile = path.join(dataDir, "trade-ai-db.json");
 const APP_STATE_KEY = "trade-ai-state";
@@ -59,13 +64,15 @@ function normalizeSubscription(subscription = {}) {
 }
 
 function normalizeUser(user = {}) {
+  const plan = normalizePlan(user.plan);
+  const planCap = getPlanSignalCap(plan);
   return {
     id: user.id,
     name: String(user.name || "Trade User").trim() || "Trade User",
     email: String(user.email || "").trim().toLowerCase(),
     passwordHash: String(user.passwordHash || ""),
-    plan: user.plan === "plus" ? "plus" : "free",
-    signalLimit: Math.max(1, Number(user.signalLimit || (user.plan === "plus" ? 10 : 2))),
+    plan,
+    signalLimit: Math.max(1, Math.min(planCap, Number(user.signalLimit || planCap))),
     settings: ensureUserSettings(user.settings || {}),
     subscription: normalizeSubscription(user.subscription || {}),
     oauthAccounts: Array.isArray(user.oauthAccounts) ? user.oauthAccounts : [],

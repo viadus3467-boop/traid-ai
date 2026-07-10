@@ -1,14 +1,18 @@
 {
-  "name": "trade-ai",
+  "name": "technoline-site",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Trade Ai mobile trading app for selective Forex and crypto signals.",
+  "description": "Premium multilingual website for TechnoLine auto electrician services.",
   "engines": {
     "node": ">=22.5.0"
   },
   "scripts": {
-    "start": "node server.mjs",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "legacy:start": "node server.mjs",
+    "render:start": "node server.mjs",
     "build:mobile-web": "node scripts/prepare-capacitor.mjs",
     "android:add": "npm run build:mobile-web && npx cap add android",
     "android:sync": "npm run build:mobile-web && npx cap sync android",
@@ -22,6 +26,20 @@
     "@capacitor/cli": "^8.3.1",
     "@capacitor/core": "^8.3.1",
     "@capacitor/ios": "^8.3.1",
+    "@supabase/supabase-js": "^2.105.1",
+    "framer-motion": "^12.38.0",
+    "lucide-react": "^1.14.0",
+    "next": "^16.2.4",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
     "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.4",
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "tailwindcss": "^4.2.4",
+    "typescript": "^6.0.3"
   }
 }

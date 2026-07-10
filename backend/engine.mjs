@@ -1,4 +1,5 @@
 import { CRYPTO_PAIRS, SUPPORTED_PAIRS } from "./pairs.mjs";
+import { getPlanSignalCap, normalizePlan } from "./preferences.mjs";
 import { atr, clamp, ema, macd, percentChange, rsi, supportResistance, trailingAverage } from "./indicators.mjs";
 import { fetchBinanceCandles } from "./providers/binance.mjs";
 import { fetchFrankfurterCandles } from "./providers/frankfurter.mjs";
@@ -341,13 +342,35 @@ function analyzePair(pair, candles) {
     shortScore += 10;
   }
 
+  const longAligned = trendDirection === "bullish" && rsi14 >= 57 && macdValue.line > macdValue.signal && macdValue.histogram > 0;
+  const shortAligned = trendDirection === "bearish" && rsi14 <= 43 && macdValue.line < macdValue.signal && macdValue.histogram < 0;
+  const pressureBonus = volumeState === "spike" ? 7 : volumeState === "steady" ? 3 : 0;
+
+  if (longAligned) {
+    longScore += 8 + pressureBonus;
+    longReasons.push("Тренд и импульс идеально совпадают");
+  }
+
+  if (shortAligned) {
+    shortScore += 8 + pressureBonus;
+    shortReasons.push("Тренд и импульс идеально совпадают");
+  }
+
+  if (breakoutLikely && longAligned && last.close >= previous.close) {
+    longScore += 6;
+  }
+
+  if (breakoutLikely && shortAligned && last.close <= previous.close) {
+    shortScore += 6;
+  }
+
   const dominantSide = longScore >= shortScore ? "long" : "short";
   const dominantScore = dominantSide === "long" ? longScore : shortScore;
   const confirmations = dominantSide === "long" ? longReasons : shortReasons;
   const confirmationCount = confirmations.length;
-  const confidence = clamp(Math.round(dominantScore - (noTradeZone ? 16 : 0)), 0, 99);
-  const ready = !noTradeZone && confidence >= 64 && confirmationCount >= 3;
-  const forming = !ready && !noTradeZone && confidence >= 48 && confirmationCount >= 2;
+  const confidence = clamp(Math.round(dominantScore - (noTradeZone ? 18 : 0) - (sideways ? 8 : 0)), 0, 99);
+  const ready = !noTradeZone && confidence >= 68 && confirmationCount >= 3;
+  const forming = !ready && !noTradeZone && confidence >= 52 && confirmationCount >= 2;
   const status = noTradeZone ? "no_trade" : ready ? "ready" : forming ? "forming" : "waiting";
   const stopLossDistance = pair.market === "crypto"
     ? clamp((atrPercent * 0.65) / 100, 0.0065, 0.02)
@@ -465,6 +488,14 @@ async function fetchCryptoMap() {
   return pairMap;
 }
 
+async function fetchForexMap() {
+  try {
+    return await fetchFrankfurterCandles(420);
+  } catch {
+    return new Map();
+  }
+}
+
 export async function getSnapshot(forceRefresh = false) {
   const now = Date.now();
 
@@ -472,10 +503,7 @@ export async function getSnapshot(forceRefresh = false) {
     return snapshotCache.payload;
   }
 
-  const [cryptoMap, forexMap] = await Promise.all([
-    fetchCryptoMap(),
-    fetchFrankfurterCandles(420),
-  ]);
+  const [cryptoMap, forexMap] = await Promise.all([fetchCryptoMap(), fetchForexMap()]);
 
   const market = [];
   const analytics = {};
@@ -520,12 +548,30 @@ export async function getSnapshot(forceRefresh = false) {
         forex: "Frankfurter / ECB daily rates",
         crypto: "Binance public 15m klines",
       },
+      providerStatus: {
+        cryptoAvailable: cryptoMap.size > 0,
+        forexAvailable: forexMap.size > 0,
+        stale: false,
+      },
       notes: {
         forexVolume: "Forex uses a participation proxy instead of centralized spot volume.",
       },
     },
     analytics,
   };
+
+  if (!signals.length && snapshotCache?.payload) {
+    return {
+      ...snapshotCache.payload,
+      meta: {
+        ...(snapshotCache.payload.meta || {}),
+        providerStatus: {
+          ...(snapshotCache.payload.meta?.providerStatus || {}),
+          stale: true,
+        },
+      },
+    };
+  }
 
   snapshotCache = {
     expiresAt: now + CACHE_TTL_MS,
@@ -539,6 +585,6 @@ export async function getDashboard(plan = "free") {
   const snapshot = await getSnapshot(false);
   return {
     ...snapshot,
-    signals: snapshot.signals.slice(0, plan === "plus" ? 10 : 2),
+    signals: snapshot.signals.slice(0, getPlanSignalCap(normalizePlan(plan))),
   };
 }

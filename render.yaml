@@ -2,9 +2,20 @@ services:
   - type: web
     name: trade-ai
     runtime: node
-    plan: free
+    plan: starter
     region: frankfurt
     autoDeployTrigger: commit
     buildCommand: npm install
-    startCommand: npm start
+    startCommand: npm run render:start
     healthCheckPath: /api/health
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: TRADE_AI_DATA_DIR
+        value: /var/data/trade-ai
+      - key: TRADE_AI_VAPID_SUBJECT
+        value: mailto:hello@trade-ai.app
+    disk:
+      name: trade-ai-data
+      mountPath: /var/data
+      sizeGB: 1
